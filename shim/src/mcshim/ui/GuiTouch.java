@@ -18,7 +18,7 @@ public final class GuiTouch {
     public static final int NONE = 0, OTHER = 1, TEXT = 2, CONTAINER = 3;
 
     private static boolean tried, ok;
-    private static Field fWorld;
+    private static Field fWorld, fAim, fAimEntity;
     private static Class<?> cDeath, cControls;
     private static Field fScreen, fPlayer, fInventory, fCursor, fList, fW, fH, fXSize, fYSize, fSlots;
     private static Field sInv, sX, sY, bId;
@@ -51,6 +51,8 @@ public final class GuiTouch {
             cOptions = Class.forName("ay", false, cl);
             fScreen = f(mc, "p");
             fWorld = f(mc, "e");
+            fAim = f(mc, "x");                                   // objectMouseOver
+            fAimEntity = f(Class.forName("mf", false, cl), "g");  // ...its entityHit
             cDeath = Class.forName("au", false, cl);
             cControls = Class.forName("lw", false, cl);
             fPlayer = f(mc, "g");
@@ -127,6 +129,42 @@ public final class GuiTouch {
             return new int[] {(int) (l * kx), (int) (t * ky), (int) ((l + size) * kx), (int) ((t + size) * ky)};
         } catch (Throwable e) {
             return null;
+        }
+    }
+
+    private static boolean musicNudged;
+
+    /**
+     * Alpha waits a random 0-10 minutes before the first music track. Once per
+     * run, as soon as a world is loaded, bring that down to 30-90 seconds;
+     * later tracks keep the game's own timing. Game thread, call every frame.
+     */
+    public static void nudgeFirstMusic() {
+        if (musicNudged || !init()) return;
+        try {
+            Object mc = Hooks.minecraft;
+            if (mc == null || fWorld.get(mc) == null) return;
+            Class<?> mcC = Class.forName("net.minecraft.client.Minecraft", false, GuiTouch.class.getClassLoader());
+            Object snd = f(mcC, "A").get(mc);
+            if (snd == null) return;
+            Field ticks = f(snd.getClass(), "i");
+            int t = ticks.getInt(snd);
+            int want = 600 + (int) (Math.random() * 1200); // 20 ticks per second
+            if (t > want) ticks.setInt(snd, want);
+            musicNudged = true;
+        } catch (Throwable e) {
+            musicNudged = true;
+        }
+    }
+
+    /** True when the crosshair is on a mob/animal/player (game thread). */
+    public static boolean aimingAtEntity() {
+        if (!init()) return false;
+        try {
+            Object aim = fAim.get(Hooks.minecraft);
+            return aim != null && fAimEntity.get(aim) != null;
+        } catch (Throwable t) {
+            return false;
         }
     }
 

@@ -16,7 +16,7 @@ code is not changed.
 
 **Features**
 
-- Pocket Edition 0.12-style touch controls (D-pad, jump, sneak, tap to use, hold to mine)
+- Pocket Edition 0.12-style touch controls (D-pad, jump, sneak; tap a creature to attack, tap a block to use/place, hold to mine)
 - The game's original screens, tuned for fingers: tap on release, long-press = right click,
   tap a crafting cell while holding items to place one, snap-to-slot, no accidental drops
 - Sound: a software OpenAL mixer (3D position, distance, panning, pitch, streamed music) on Android's AudioTrack —
@@ -122,6 +122,9 @@ App 第一次開啟時會把音效複製到遊戲資料夾，畫面會顯示 `In
 
 設定裡的 Music、Sound 滑桿可以調音量；App 切到背景時聲音會自動暫停。
 
+**背景音樂：**放在 `music/`（例如 `calm1.ogg`、`calm2.ogg`、`calm3.ogg`）。原版要隨機等 0～10 分鐘才播第一首，
+手機上常常還沒聽到就關掉了，所以每次開遊戲的第一首改成 30～90 秒內開始，之後照原版的間隔。
+
 ### 存檔位置
 
 `Android/data/io.github.mcport.alpha/files/.minecraft/saves/`
@@ -158,7 +161,8 @@ App 第一次開啟時會把音效複製到遊戲資料夾，畫面會顯示 `In
 | `kind` | 印出目前畫面類型（0 無、1 一般、2 打字、3 背包類） |
 | `tapgui X Y [long]` | 模擬手機在背包類畫面點一下（加 long 為長按） |
 | `move X Y` | 移動滑鼠游標 |
-| `music` | 立刻開始播背景音樂（原版要等好幾分鐘） |
+| `music` | 立刻開始播背景音樂 |
+| `pig` / `aim` / `taplook` / `pigstat` | 在前方放一隻豬並瞄準／印出準心是否對著生物／模擬手機點一下／印出豬的數值 |
 
 測試世界存在 `build/mchome/`。
 
@@ -172,8 +176,8 @@ App 第一次開啟時會把音效複製到遊戲資料夾，畫面會顯示 `In
 
 - **十字鍵（左下）：**移動，手指可以在按鈕間滑動；往前走時會出現兩個斜向按鈕
 - **十字鍵中間：**蹲下，點一下切換開關
-- **右下角 ^：**跳躍，按住會連續跳
-- **畫面其他地方：**拖曳轉視角；點一下＝使用／放置；按住不動＝挖掘／攻擊（對準準心）
+- **右下角 ^：**跳躍，按住會連續跳（離右邊緣稍有距離，拇指比較好按）
+- **畫面其他地方：**拖曳轉視角；點一下＝準心對著生物就攻擊、否則使用／放置；按住不動＝挖掘（或連續攻擊）。都是對準畫面中央準心
 - **熱鍵列：**點一下選格子，按住約 0.5 秒丟出物品
 - **熱鍵列右邊「⋯」：**打開背包；**右上角 ‖：**暫停；**返回鍵：**Esc
 

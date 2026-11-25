@@ -55,6 +55,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             String lastClose = "";
             public void onFrame() {
                 mcshim.ui.GuiTouch.dedupeButtons();
+                mcshim.ui.GuiTouch.nudgeFirstMusic();
                 final int[] close = mcshim.ui.GuiTouch.closeButton(overlay.getWidth(), overlay.getHeight());
                 String ck = close == null ? "" : close[0] + "," + close[1] + "," + close[2] + "," + close[3];
                 if (!ck.equals(lastClose)) {

@@ -236,7 +236,9 @@ final class TouchOverlay extends View {
         float pb = Math.round(cell * 0.75f / s) * s;
         pauseR.set(w - margin - pb, margin, w - margin, margin + pb);
         // jump: bottom-right, level with the middle row of the D-pad
-        jumpR.set(w - margin - cell, padY + cell, w - margin, padY + cell * 2);
+        // a little in from the right edge so the thumb reaches it comfortably
+        float jx = w - margin - cell - Math.round(cell * 0.6f / s) * s;
+        jumpR.set(jx, padY + cell, jx + cell, padY + cell * 2);
         float hbW = 182 * s, hbH = 22 * s;
         float hx = (w - hbW) / 2 + hbW + 2 * s;
         invR.set(hx, h - hbH, hx + hbH, h);
@@ -476,8 +478,14 @@ final class TouchOverlay extends View {
                 if (q.mining) {
                     Mouse.injectButton(0, false);
                 } else if (!cancel && !q.moved && SystemClock.uptimeMillis() - q.t0 < LONG_PRESS_MS) {
-                    Mouse.injectButton(1, true);   // tap = use / place
-                    Mouse.injectButton(1, false);
+                    // tap: attack if the crosshair is on a creature, otherwise use / place
+                    Hooks.runOnGameThread(new Runnable() {
+                        public void run() {
+                            int b = GuiTouch.aimingAtEntity() ? 0 : 1;
+                            Mouse.injectButton(b, true);
+                            Mouse.injectButton(b, false);
+                        }
+                    });
                 }
                 break;
         }

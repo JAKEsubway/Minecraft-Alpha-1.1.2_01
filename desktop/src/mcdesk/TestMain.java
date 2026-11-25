@@ -14,7 +14,7 @@ public class TestMain {
         System.setProperty("user.home", args.length > 0 ? args[0] : "/tmp/mchome");
         new java.io.File(System.getProperty("user.home")).mkdirs();
         mcshim.Hooks.setFrameListener(new mcshim.Hooks.FrameListener() {   // same per-frame hook as the Android app
-            public void onFrame() { mcshim.ui.GuiTouch.dedupeButtons(); }
+            public void onFrame() { mcshim.ui.GuiTouch.dedupeButtons(); mcshim.ui.GuiTouch.nudgeFirstMusic(); }
         });
         Class.forName("net.minecraft.client.Minecraft").getMethod("main", String[].class)
                 .invoke(null, (Object) new String[] {"Tester", "-"});
@@ -36,7 +36,7 @@ public class TestMain {
                 case "look": Mouse.injectDelta(Float.parseFloat(t[1]), Float.parseFloat(t[2])); break;
                 case "mdown": Mouse.injectButton(Integer.parseInt(t[1]), true); break;
                 case "mup": Mouse.injectButton(Integer.parseInt(t[1]), false); break;
-                case "give": case "craft": case "dump": case "counts": case "screen": case "kind": case "tapgui": case "closebtn": case "music": case "inv": case "tap": case "equip": case "unequip": game(t); break;
+                case "give": case "craft": case "dump": case "counts": case "screen": case "kind": case "tapgui": case "closebtn": case "music": case "aim": case "pig": case "pigstat": case "taplook": case "inv": case "tap": case "equip": case "unequip": game(t); break;
             }
             if (p.crashText != null) break;
         }
@@ -60,6 +60,34 @@ public class TestMain {
                         }
                     } else if (t[0].equals("counts")) {
                         System.out.println("counts " + mcshim.craft.Crafting.counts());
+                    } else if (t[0].equals("pig")) {
+                        // spawn a pig 2.5 blocks in front of the player and look at it
+                        Object mc = mcshim.Hooks.minecraft;
+                        Class<?> mcC = mc.getClass().getSuperclass();
+                        Object world = field(mcC, "e").get(mc), player = field(mcC, "g").get(mc);
+                        Class<?> ent = Class.forName("kh");
+                        double px = field(ent, "ak").getDouble(player), py = field(ent, "al").getDouble(player), pz = field(ent, "am").getDouble(player);
+                        float yaw = field(ent, "aq").getFloat(player);
+                        double dx = -Math.sin(Math.toRadians(yaw)), dz = Math.cos(Math.toRadians(yaw));
+                        pig = Class.forName("mv").getConstructor(Class.forName("cn")).newInstance(world);
+                        ent.getMethod("c", double.class, double.class, double.class, float.class, float.class)
+                           .invoke(pig, px + dx * 2.5, py - 1.62, pz + dz * 2.5, yaw, 0f);
+                        System.out.println("spawned pig: " + world.getClass().getMethod("a", ent).invoke(world, pig));
+                        field(ent, "ar").setFloat(player, 22f);
+                        field(ent, "aq").setFloat(player, yaw);
+                    } else if (t[0].equals("pigstat")) {
+                        StringBuilder b = new StringBuilder("pig ints:");
+                        for (Class<?> c = pig.getClass(); c != Object.class; c = c.getSuperclass())
+                            for (java.lang.reflect.Field f : c.getDeclaredFields())
+                                if (f.getType() == int.class && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) { f.setAccessible(true); b.append(' ').append(c.getName()).append('.').append(f.getName()).append('=').append(f.getInt(pig)); }
+                        System.out.println(b);
+                    } else if (t[0].equals("taplook")) {
+                        // same decision the phone makes on a quick tap in the world
+                        int btn = mcshim.ui.GuiTouch.aimingAtEntity() ? 0 : 1;
+                        Mouse.injectButton(btn, true); Mouse.injectButton(btn, false);
+                        System.out.println("taplook -> " + (btn == 0 ? "attack" : "use/place"));
+                    } else if (t[0].equals("aim")) {
+                        System.out.println("aim entity=" + mcshim.ui.GuiTouch.aimingAtEntity());
                     } else if (t[0].equals("music")) {
                         // start background music now instead of after the game's long random delay
                         java.lang.reflect.Field fa = mcshim.Hooks.minecraft.getClass().getSuperclass().getDeclaredField("A");
@@ -106,6 +134,14 @@ public class TestMain {
             }
         });
         synchronized (done) { long end = System.currentTimeMillis() + 30000; while (!fin[0] && System.currentTimeMillis() < end) done.wait(500); }
+    }
+
+    static Object pig;
+
+    static java.lang.reflect.Field field(Class<?> c, String n) throws Exception {
+        java.lang.reflect.Field f = c.getDeclaredField(n);
+        f.setAccessible(true);
+        return f;
     }
 
     /** Click at window pixel (x from left, y from top). */
