@@ -12,7 +12,7 @@ Writes OUT_DIR/mcres/<path> and OUT_DIR/mcres/index.txt ("size path" per line).
 """
 import json, os, shutil, sys
 
-PREFIXES = ("sound/", "sound3/", "newsound/", "music/", "newmusic/", "streaming/")
+PREFIXES = ("sound/", "newsound/", "music/", "newmusic/", "streaming/")  # what Alpha loads (sound3/ is for later versions)
 EXTS = (".ogg", ".mus", ".wav")
 
 def wanted(path):
