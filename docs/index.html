@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mcport — Minecraft Alpha on Android, natively</title>
+<meta name="description" content="Turn your own Minecraft Alpha 1.1.2_01 jar into a native Android APK with Pocket Edition style touch controls.">
+<style>
+  :root {
+    --bg: #14161a; --panel: #1d2026; --line: #2c3038; --text: #e8e6e1; --muted: #9a9ea6;
+    --grass: #6aa84f; --grass-dark: #3f7a2e; --dirt: #8a6142; --warn: #e2b04a;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.65 system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", sans-serif;
+  }
+  a { color: #8fd16f; }
+  code, pre { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+  li > code, p > code, span > code { overflow-wrap: anywhere; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px; }
+
+  /* grass-block strip across the top */
+  .strip { height: 14px; background:
+    linear-gradient(var(--grass) 0 6px, var(--grass-dark) 6px 8px, var(--dirt) 8px); }
+
+  header { padding: 48px 0 28px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .logo { font-weight: 800; letter-spacing: .5px; font-size: 15px; color: var(--muted); }
+  .lang button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer;
+  }
+  .lang button[aria-pressed="true"] { background: var(--grass-dark); border-color: var(--grass); }
+  .lang button:first-child { border-radius: 6px 0 0 6px; }
+  .lang button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+  h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.15; margin: 28px 0 14px; }
+  .lead { font-size: 18px; color: #cfd2d6; max-width: 720px; margin: 0; }
+  .cta { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: 11px 18px; border-radius: 6px; text-decoration: none;
+    font-weight: 700; border: 2px solid #000; box-shadow: inset 0 2px 0 rgba(255,255,255,.25), inset 0 -3px 0 rgba(0,0,0,.35);
+  }
+  .btn.primary { background: var(--grass-dark); color: #fff; }
+  .btn.ghost { background: #6f6f6f; color: #fff; }
+
+  section { padding: 28px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 22px; margin: 0 0 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .card p { margin: 0; color: #c4c7cc; font-size: 15px; }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--line); }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  ol { padding-left: 22px; margin: 0; }
+  ol li { margin: 0 0 12px; }
+  pre {
+    background: #0e1013; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    overflow-x: auto; font-size: 14px; margin: 8px 0 0; white-space: pre;
+  }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 15px; }
+  .flow span { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  .flow b { color: var(--muted); font-weight: 400; }
+  .notice {
+    background: rgba(226,176,74,.08); border: 1px solid rgba(226,176,74,.45); border-radius: 8px;
+    padding: 14px 18px; color: #ecdcb8;
+  }
+  .notice strong { color: var(--warn); }
+  footer { padding: 26px 0 50px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+  [data-zh] { display: none; }
+  body.zh [data-en] { display: none; }
+  body.zh [data-zh] { display: revert; }
+</style>
+</head>
+<body>
+<div class="strip" aria-hidden="true"></div>
+<div class="wrap">
+
+<header>
+  <div class="top">
+    <div class="logo">mcport</div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" id="b-en" aria-pressed="true">English</button>
+      <button type="button" id="b-zh" aria-pressed="false">中文</button>
+    </div>
+  </div>
+  <h1>
+    <span data-en>Minecraft Alpha on Android. Natively.</span>
+    <span data-zh>在 Android 上原生執行 Minecraft Alpha</span>
+  </h1>
+  <p class="lead">
+    <span data-en>mcport turns your own copy of the Alpha 1.1.2_01 desktop jar into an Android APK — no launcher, no Java VM on the phone. Pocket Edition style touch controls, the game's original screens tuned for fingers.</span>
+    <span data-zh>mcport 把你自己的 Alpha 1.1.2_01 電腦版 jar 打包成 Android APK，不需要啟動器，手機上也不用跑 Java 虛擬機。觸控仿 Pocket Edition，介面保留原版並針對手指操作優化。</span>
+  </p>
+  <div class="cta">
+    <a class="btn primary" id="repo" href="#">
+      <span data-en>View on GitHub</span><span data-zh>前往 GitHub</span>
+    </a>
+    <a class="btn ghost" href="#build"><span data-en>Build it</span><span data-zh>開始打包</span></a>
+  </div>
+</header>
+
+<section>
+  <div class="notice">
+    <strong data-en>Not an official Minecraft product.</strong>
+    <strong data-zh>這不是官方 Minecraft 產品。</strong>
+    <span data-en>Not approved by or associated with Mojang or Microsoft. This project contains no Mojang code or assets — you supply your own legally obtained game jar, and the APK you build from it is for your personal use only.</span>
+    <span data-zh>與 Mojang 或 Microsoft 無關，也未經其認可。本專案不含任何 Mojang 的程式碼或素材；你必須使用自己合法取得的遊戲 jar，打包出的 APK 只能自己使用，不能散布。</span>
+  </div>
+</section>
+
+<section>
+  <h2><span data-en>Touch controls</span><span data-zh>觸控操作</span></h2>
+  <figure>
+    <img src="controls.png" width="1280" height="720" alt="Touch control layout: D-pad bottom left with sneak in the middle, jump bottom right, pause top right, inventory next to the hotbar.">
+    <figcaption>
+      <span data-en>Layout in the style of Pocket Edition 0.12. Diagram only — no game graphics.</span>
+      <span data-zh>仿 Pocket Edition 0.12 的配置。此為示意圖，不含遊戲畫面。</span>
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span data-en>What you get</span><span data-zh>功能</span></h2>
+  <div class="grid">
+    <div class="card">
+      <h3><span data-en>Truly native</span><span data-zh>真正原生</span></h3>
+      <p><span data-en>Game bytecode becomes Android dex. Rendering goes through EGL + OpenGL ES 1.1 — no emulator, no launcher.</span><span data-zh>遊戲位元碼轉成 Android dex，畫面用 EGL + OpenGL ES 1.1 繪製，不靠模擬器或啟動器。</span></p>
+    </div>
+    <div class="card">
+      <h3><span data-en>PE-style controls</span><span data-zh>PE 風格操作</span></h3>
+      <p><span data-en>D-pad, jump, sneak toggle, tap to use, hold to mine, tap the hotbar to switch, hold it to drop.</span><span data-zh>十字鍵、跳躍、蹲下切換、點一下使用、按住挖掘、點熱鍵列切換、按住丟棄。</span></p>
+    </div>
+    <div class="card">
+      <h3><span data-en>Original screens, finger-friendly</span><span data-zh>原版介面，好按</span></h3>
+      <p><span data-en>Taps count on release, long-press is a right click, tapping a crafting cell while holding items places one, taps snap to slots, near misses never drop a stack.</span><span data-zh>放開才算點擊、長按＝右鍵、拿著材料點合成格只放 1 個、自動對準格子、不會誤丟整疊。</span></p>
+    </div>
+    <div class="card">
+      <h3><span data-en>Keyboard when you need it</span><span data-zh>需要打字時自動鍵盤</span></h3>
+      <p><span data-en>The phone keyboard pops up for chat, signs and server addresses, and hides again afterwards.</span><span data-zh>聊天、告示牌、伺服器位址時自動跳出手機鍵盤，離開後收起。</span></p>
+    </div>
+    <div class="card">
+      <h3><span data-en>Alpha bugs fixed</span><span data-zh>修正 Alpha 錯誤</span></h3>
+      <p><span data-en>No more random "Comparison method violates its general contract!" crashes, and no doubled buttons after the Controls screen.</span><span data-zh>不再隨機出現「Comparison method violates its general contract!」當機，Controls 回來後按鈕也不再重複。</span></p>
+    </div>
+    <div class="card">
+      <h3><span data-en>Testable on a PC</span><span data-zh>電腦上就能測</span></h3>
+      <p><span data-en>The same layer runs on desktop OpenGL with scripted input and screenshots, so changes can be checked without a phone.</span><span data-zh>同一套轉接層可以接電腦的 OpenGL，用腳本操作並截圖，不用手機也能驗證。</span></p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span data-en>How it works</span><span data-zh>運作方式</span></h2>
+  <div class="flow">
+    <span>a1.1.2_01.jar</span><b>→</b>
+    <span data-en>remap LWJGL / AWT / ImageIO calls</span><span data-zh>重新導向 LWJGL／AWT／ImageIO 呼叫</span><b>→</b>
+    <span>+ mcshim</span><b>→</b>
+    <span>dx → classes.dex</span><b>→</b>
+    <span data-en>signed APK</span><span data-zh>簽名的 APK</span>
+  </div>
+  <p data-en>The game's code itself is untouched. GL 1.1 features missing on phones — display lists, quads, matrix queries — are emulated on OpenGL ES 1.1.</p>
+  <p data-zh>遊戲本身的程式不會被修改。手機上沒有的 GL 1.1 功能（display list、四邊形、矩陣查詢）由轉接層用 OpenGL ES 1.1 模擬。</p>
+</section>
+
+<section id="build">
+  <h2><span data-en>Build your APK</span><span data-zh>打包 APK</span></h2>
+  <ol>
+    <li>
+      <span data-en>Use Linux, or WSL (Ubuntu) on Windows, and install the tools once:</span>
+      <span data-zh>在 Linux 或 Windows 的 WSL（Ubuntu）上安裝工具（只要一次）：</span>
+<pre>sudo apt update
+sudo apt install openjdk-21-jdk android-sdk-platform-23 dalvik-exchange \
+                 aapt zipalign apksigner libasm-java python3</pre>
+    </li>
+    <li>
+      <span data-en>Download Alpha 1.1.2_01 with your own account in the official launcher and copy</span>
+      <span data-zh>用自己的正版帳號在官方啟動器下載 Alpha 1.1.2_01，複製</span>
+      <code>.minecraft/versions/a1.1.2_01/a1.1.2_01.jar</code>.
+    </li>
+    <li>
+      <span data-en>Clone this repository and build:</span>
+      <span data-zh>下載本專案並打包：</span>
+<pre>git clone <span class="clone-url">https://github.com/OWNER/mcport.git</span>
+cd mcport
+./build-apk.sh ~/a1.1.2_01.jar minecraft-alpha.apk</pre>
+    </li>
+    <li>
+      <span data-en>Copy the APK to your phone and install it (Android 5.0+). Keep the <code>build/</code> folder: its signing key is needed to update the app later without losing your worlds.</span>
+      <span data-zh>把 APK 傳到手機安裝（Android 5.0 以上）。請保留 <code>build/</code> 資料夾，裡面的簽名金鑰之後更新 App 要用，否則必須移除重裝，存檔會不見。</span>
+    </li>
+  </ol>
+</section>
+
+<footer>
+  <span data-en>mcport code is released under the MIT License. Minecraft is a trademark of Mojang Synergies AB.</span>
+  <span data-zh>mcport 程式碼以 MIT 授權釋出。Minecraft 是 Mojang Synergies AB 的商標。</span>
+</footer>
+
+</div>
+<script>
+  (function () {
+    // Language switch (remembered when the browser allows it)
+    var body = document.body, en = document.getElementById('b-en'), zh = document.getElementById('b-zh');
+    function set(lang) {
+      body.classList.toggle('zh', lang === 'zh');
+      document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
+      en.setAttribute('aria-pressed', lang !== 'zh');
+      zh.setAttribute('aria-pressed', lang === 'zh');
+      try { localStorage.setItem('mcport-lang', lang); } catch (e) {}
+    }
+    var saved = null;
+    try { saved = localStorage.getItem('mcport-lang'); } catch (e) {}
+    set(saved || (/^zh/i.test(navigator.language || '') ? 'zh' : 'en'));
+    en.onclick = function () { set('en'); };
+    zh.onclick = function () { set('zh'); };
+
+    // Work out the repository from the GitHub Pages address: https://USER.github.io/REPO/
+    var m = location.hostname.match(/^([^.]+)\.github\.io$/i);
+    var repoName = (location.pathname.split('/')[1] || 'mcport');
+    var url = m ? 'https://github.com/' + m[1] + '/' + repoName : 'https://github.com/';
+    document.getElementById('repo').href = url;
+    var c = document.querySelectorAll('.clone-url');
+    for (var i = 0; i < c.length; i++) c[i].textContent = (m ? url : 'https://github.com/OWNER/mcport') + '.git';
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# Build output (contains Mojang code once a game jar has been processed)
+build/
+out/
+shots/
+*.apk
+*.idsig
+*.dex
+*.keystore
+
+# Never commit the game itself
+*.jar
