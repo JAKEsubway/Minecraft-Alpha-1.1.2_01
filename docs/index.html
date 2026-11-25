@@ -142,6 +142,10 @@
       <p><span data-en>The phone keyboard pops up for chat, signs and server addresses, and hides again afterwards.</span><span data-zh>聊天、告示牌、伺服器位址時自動跳出手機鍵盤，離開後收起。</span></p>
     </div>
     <div class="card">
+      <h3><span data-en>Sound</span><span data-zh>音效</span></h3>
+      <p><span data-en>A software OpenAL mixer: 3D position, distance, stereo panning, pitch and streamed music. Sound files come from your own launcher install.</span><span data-zh>軟體 OpenAL 混音器：立體位置、距離衰減、左右聲道、音高與音樂串流。音效檔來自你自己的啟動器。</span></p>
+    </div>
+    <div class="card">
       <h3><span data-en>Alpha bugs fixed</span><span data-zh>修正 Alpha 錯誤</span></h3>
       <p><span data-en>No more random "Comparison method violates its general contract!" crashes, and no doubled buttons after the Controls screen.</span><span data-zh>不再隨機出現「Comparison method violates its general contract!」當機，Controls 回來後按鈕也不再重複。</span></p>
     </div>
@@ -185,7 +189,9 @@ sudo apt install openjdk-21-jdk android-sdk-platform-23 dalvik-exchange \
       <span data-zh>下載本專案並打包：</span>
 <pre>git clone <span class="clone-url">https://github.com/OWNER/mcport.git</span>
 cd mcport
-./build-apk.sh ~/a1.1.2_01.jar minecraft-alpha.apk</pre>
+./build-apk.sh ~/a1.1.2_01.jar minecraft-alpha.apk ~/.minecraft</pre>
+      <span data-en>The last argument adds sound: launch Alpha once with the official launcher so it downloads the old sound files, then pass your <code>.minecraft</code> folder. Leave it out for a silent build.</span>
+      <span data-zh>最後一個參數會加入音效：先用官方啟動器啟動一次 Alpha 讓它下載舊版音效，再把 <code>.minecraft</code> 資料夾傳進來。省略的話就沒有聲音。</span>
     </li>
     <li>
       <span data-en>Copy the APK to your phone and install it (Android 5.0+). Keep the <code>build/</code> folder: its signing key is needed to update the app later without losing your worlds.</span>

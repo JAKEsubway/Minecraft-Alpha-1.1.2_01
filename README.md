@@ -19,6 +19,8 @@ code is not changed.
 - Pocket Edition 0.12-style touch controls (D-pad, jump, sneak, tap to use, hold to mine)
 - The game's original screens, tuned for fingers: tap on release, long-press = right click,
   tap a crafting cell while holding items to place one, snap-to-slot, no accidental drops
+- Sound: a software OpenAL mixer (3D position, distance, panning, pitch, streamed music) on Android's AudioTrack —
+  bring the sound files from your own launcher install
 - Soft keyboard pops up for chat, signs and server addresses
 - Fixes two Alpha bugs that matter on phones: random "Comparison method violates its general
   contract!" crashes, and duplicated buttons after leaving the Controls screen
@@ -28,7 +30,7 @@ code is not changed.
 
 ```sh
 sudo apt install openjdk-21-jdk android-sdk-platform-23 dalvik-exchange aapt zipalign apksigner libasm-java python3
-./build-apk.sh path/to/a1.1.2_01.jar minecraft-alpha.apk
+./build-apk.sh path/to/a1.1.2_01.jar minecraft-alpha.apk ~/.minecraft   # last argument (sounds) is optional
 ```
 
 Licensed under the MIT License (mcport code only). Full documentation below is in Traditional Chinese.
@@ -75,8 +77,10 @@ sudo apt install liblwjgl-java xvfb libgl1-mesa-dri
 ```sh
 unzip mcport-source-kit.zip -d mcport
 cd mcport
-./build-apk.sh ~/a1.1.2_01.jar minecraft-alpha.apk
+./build-apk.sh ~/a1.1.2_01.jar minecraft-alpha.apk ~/.minecraft
 ```
+
+第三個參數（音效資料夾）可以省略，省略的話遊戲沒有聲音，詳見下方「音效」。
 
 腳本會依序執行七個步驟：
 
@@ -87,7 +91,7 @@ cd mcport
 | 3 | `tools/Check.java` 檢查遊戲用到的每個類別、方法、欄位在轉接層裡都存在（應顯示 `OK`） |
 | 4 | 編譯 Android 端程式（Activity、觸控、EGL） |
 | 5 | `dx` 轉成 `classes.dex` |
-| 6 | `aapt` 打包；遊戲的圖片等資源放在 APK 根目錄 |
+| 6 | `aapt` 打包；遊戲的圖片等資源放在 APK 根目錄；有給音效資料夾的話，音效放進 `assets/mcres/` |
 | 7 | `zipalign` 對齊，再用自動產生的 `build/debug.keystore` 簽名 |
 
 第一次打包會自動產生簽名金鑰並存在 `build/debug.keystore`。
@@ -102,6 +106,21 @@ adb install -r minecraft-alpha.apk
 ```
 
 需求：Android 5.0 以上，支援 OpenGL ES 1.1（幾乎所有手機都支援）。
+
+### 音效
+
+音效檔不在遊戲 jar 裡（當年是另外從已關閉的伺服器下載），而且同樣屬於 Mojang，所以本專案不附帶。取得方式：
+
+1. 用官方啟動器**實際啟動一次** Alpha 1.1.2_01，啟動器會下載舊版音效
+2. 打包時把 `.minecraft` 資料夾當第三個參數：`./build-apk.sh 遊戲.jar 輸出.apk ~/.minecraft`
+
+腳本會自動在裡面找 `resources/`（舊版啟動器）或 `assets/`（新版啟動器，依 `indexes/pre-1.6.json` 還原檔名），
+只收集 `sound/`、`newsound/`、`music/`、`newmusic/`、`streaming/` 底下的音效。
+App 第一次開啟時會把音效複製到遊戲資料夾，畫面會顯示 `Installing sounds... %`，之後就不會再複製。
+
+也可以不打包，直接把音效資料夾複製到手機的 `Android/data/io.github.mcport.alpha/files/.minecraft/resources/`。
+
+設定裡的 Music、Sound 滑桿可以調音量；App 切到背景時聲音會自動暫停。
 
 ### 存檔位置
 
@@ -139,8 +158,13 @@ adb install -r minecraft-alpha.apk
 | `kind` | 印出目前畫面類型（0 無、1 一般、2 打字、3 背包類） |
 | `tapgui X Y [long]` | 模擬手機在背包類畫面點一下（加 long 為長按） |
 | `move X Y` | 移動滑鼠游標 |
+| `music` | 立刻開始播背景音樂（原版要等好幾分鐘） |
 
 測試世界存在 `build/mchome/`。
+
+聲音可以錄成檔案檢查（電腦端沒有喇叭）：
+`MCDESK_JAVA_OPTS="-Dmcdesk.audio=/tmp/audio.raw" ./run-desktop-test.sh 遊戲.jar "..."`，
+輸出是 44.1 kHz 立體聲 16-bit 的原始 PCM。測試用的音效可以放在 `build/mchome/.minecraft/resources/`。
 
 ## 五、操作方式
 
@@ -182,6 +206,7 @@ run-desktop-test.sh     電腦端測試腳本
 tools/Remap.java        重新導向 jar 的引用（ASM ClassRemapper），在 Minecraft 建構子插入 Hooks.minecraft = this，
                         並把遊戲的排序呼叫換成 SafeSort
 tools/Check.java        檢查轉接層是否涵蓋所有引用
+tools/collect_sounds.py 從 .minecraft 收集音效打包進 APK（支援 resources/ 和新版 assets/）
 shim/src/mcshim/        轉接層（Android 與電腦共用）
   Platform.java         平台介面
   gl/GLBackend.java     GLES 1.1 子集介面
@@ -192,14 +217,16 @@ shim/src/mcshim/        轉接層（Android 與電腦共用）
   Hooks.java            遊戲執行緒與 UI 之間的橋樑（每幀執行排隊的工作）
   craft/                測試用：讀配方、讀寫背包（電腦端測試指令 give / inv 等）
   ui/GuiTouch.java      原版介面的觸控判斷（合成格放 1 個、對準格子、防誤丟）與 Alpha 按鈕重複錯誤的修正
+  audio/                軟體 OpenAL 混音器（位置、距離衰減、左右聲道、音高、音樂串流）
+  lwjgl/openal/         遊戲音效庫呼叫的 OpenAL 函式，接到上面的混音器
   SafeSort.java         取代遊戲排序，避免 Alpha 的比較器在新版 Java／Android 上崩潰
-android/                Android 端：MainActivity、EGL、觸控（TouchOverlay）、自動鍵盤（TextInput）、鍵盤對應、Manifest、圖示
+android/                Android 端：MainActivity、EGL、AudioTrack 聲音輸出、音效安裝（SoundInstaller）、觸控（TouchOverlay）、
+                        自動鍵盤（TextInput）、鍵盤對應、Manifest、圖示
 desktop/                電腦端測試平台（真的 LWJGL 2）
 ```
 
 ## 七、已知限制
 
-- **沒有音效：**OpenAL 只有空殼，原版音效檔也要從已關閉的伺服器下載
 - 挖掘／攻擊對準畫面中央準心，不是手指點的位置
 - 合成格放 1 個、防誤丟等觸控調整依賴 a1.1.2_01 的混淆名稱（`shim/src/mcshim/ui/GuiTouch.java`），找不到時會退回一般點擊
 - 多人遊戲沒有測試過
@@ -215,4 +242,4 @@ desktop/                電腦端測試平台（真的 LWJGL 2）
 
 **打包時出現 `dx: not found`？** 腳本會自動改用 `/usr/lib/android-sdk/build-tools/debian/dx`，請確認已安裝 `dalvik-exchange`。
 
-**電腦端測試出現 `Error in class 'LibraryLWJGLOpenAL'` 或 `UnknownHostException`？** 這是正常的：前者表示音效切換成靜音模式，後者是遊戲想下載已經關閉的舊資源伺服器，都不影響遊玩。
+**電腦端測試出現 `UnknownHostException`？** 這是正常的：遊戲想下載已經關閉的舊資源伺服器，失敗後會改用本機 `resources/` 裡的音效，不影響遊玩。

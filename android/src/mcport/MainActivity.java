@@ -103,8 +103,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         if (home == null) home = getFilesDir();
         System.setProperty("user.home", home.getAbsolutePath());
         Platform.INSTANCE = platform;
+        final File resources = new File(home, ".minecraft/resources");
         new Thread(new Runnable() {
             public void run() {
+                // copy sounds packed into this APK (if any) to where the game looks for them
+                SoundInstaller.install(getAssets(), resources, new SoundInstaller.Progress() {
+                    public void update(final int done, final int total) {
+                        runOnUiThread(new Runnable() {
+                            public void run() { showStatus(done < total ? "Installing sounds... " + (done * 100 / total) + "%" : null); }
+                        });
+                    }
+                });
                 try {
                     Class.forName("net.minecraft.client.Minecraft")
                             .getMethod("main", String[].class)
@@ -140,6 +149,24 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     protected void onPause() {
         if (platform != null) platform.setResumed(false);
         super.onPause();
+    }
+
+    private TextView status;
+
+    /** Small centred status line over the game surface (null hides it). */
+    void showStatus(String text) {
+        if (text == null) {
+            if (status != null) { root.removeView(status); status = null; }
+            return;
+        }
+        if (status == null) {
+            status = new TextView(this);
+            status.setTextColor(Color.WHITE);
+            status.setTextSize(16);
+            status.setGravity(android.view.Gravity.CENTER);
+            root.addView(status, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        }
+        status.setText(text);
     }
 
     // ---- callbacks from the game thread ----

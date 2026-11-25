@@ -166,5 +166,26 @@ final class AndroidPlatform extends Platform {
 
     public void mouseGrabbed(boolean g) { act.onGrabChanged(g); }
 
+    public mcshim.audio.AudioOut openAudio(int rate) {
+        try {
+            int min = android.media.AudioTrack.getMinBufferSize(rate, android.media.AudioFormat.CHANNEL_OUT_STEREO,
+                    android.media.AudioFormat.ENCODING_PCM_16BIT);
+            final android.media.AudioTrack t = new android.media.AudioTrack(android.media.AudioManager.STREAM_MUSIC, rate,
+                    android.media.AudioFormat.CHANNEL_OUT_STEREO, android.media.AudioFormat.ENCODING_PCM_16BIT,
+                    Math.max(min * 2, 4096 * 4), android.media.AudioTrack.MODE_STREAM);
+            if (t.getState() != android.media.AudioTrack.STATE_INITIALIZED) { t.release(); return null; }
+            t.play();
+            return new mcshim.audio.AudioOut() {
+                public void write(short[] pcm, int frames) { t.write(pcm, 0, frames * 2); }
+                public void pause() { t.pause(); }
+                public void resume() { t.play(); }
+                public void close() { try { t.stop(); } catch (Exception ignored) {} t.release(); }
+            };
+        } catch (Exception e) {
+            Log.w(TAG, "No audio: " + e);
+            return null;
+        }
+    }
+
     public void log(String s) { Log.i(TAG, s); }
 }

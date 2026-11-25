@@ -61,5 +61,11 @@ public class DesktopPlatform extends Platform {
 
     public void crash(String report) { crashText = report; System.err.println("=== GAME CRASH ===\n" + report); }
 
+    public mcshim.audio.AudioOut openAudio(int rate) {
+        String path = System.getProperty("mcdesk.audio");
+        if (path == null) return null;
+        try { return new RawAudioOut(path, rate); } catch (java.io.IOException e) { return null; }
+    }
+
     public void mouseGrabbed(boolean g) { grabbed = g; log("mouse grabbed=" + g); }
 }

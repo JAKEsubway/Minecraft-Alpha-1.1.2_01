@@ -24,7 +24,7 @@ if [ -z "$DISPLAY" ]; then
 fi
 export LIBGL_ALWAYS_SOFTWARE=1
 mkdir -p $B/mchome
-java -Xmx1g -Djava.library.path=/usr/lib/jni \
+java -Xmx1g -Djava.library.path=/usr/lib/jni $MCDESK_JAVA_OPTS \
   -cp $B/desk-classes:$B/shim-classes:$B/game-remapped.jar:$B/game-res.zip:/usr/share/java/lwjgl.jar \
   mcdesk.TestMain "$PWD/$B/mchome" "$SCRIPT" || true
 [ -n "$XVFB" ] && kill $XVFB 2>/dev/null || true

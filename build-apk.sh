@@ -1,12 +1,16 @@
 #!/bin/sh
 # Build an Android APK from a desktop Minecraft Alpha client jar.
-#   ./build-apk.sh path/to/a1.1.2_01.jar [out.apk]
+#   ./build-apk.sh path/to/a1.1.2_01.jar [out.apk] [sound folder]
+# The optional sound folder is your .minecraft (or its resources/ or assets/):
+# the sounds get packed into the APK and installed on first launch.
 # Needs (Debian/Ubuntu): openjdk, android-sdk-platform-23, dalvik-exchange, aapt,
 # zipalign, apksigner, libasm-java
 set -e
 GAME_JAR=$(readlink -f "$1")
 OUT=${2:-minecraft-alpha.apk}
 case "$OUT" in /*) ;; *) OUT="$PWD/$OUT";; esac
+SOUNDS=${3:-}
+[ -n "$SOUNDS" ] && SOUNDS=$(readlink -f "$SOUNDS")
 cd "$(dirname "$0")"
 ANDROID_JAR=/usr/lib/android-sdk/platforms/android-23/android.jar
 ASM=/usr/share/java/asm.jar:/usr/share/java/asm-commons.jar:/usr/share/java/asm-tree.jar
@@ -35,7 +39,13 @@ rm -rf $B/dex && mkdir -p $B/dex
 $DX --dex --min-sdk-version=21 --output=$B/dex/classes.dex $B/shim-classes $B/android-classes $B/game-remapped.jar
 
 echo "[6/7] packaging"
-aapt package -f -M android/AndroidManifest.xml -S android/res -I $ANDROID_JAR -F $B/unsigned.apk
+rm -rf $B/apk-assets && mkdir -p $B/apk-assets
+if [ -n "$SOUNDS" ]; then
+  python3 tools/collect_sounds.py "$SOUNDS" $B/apk-assets
+else
+  echo "      (no sound folder given: the APK will be silent unless you copy sounds to the phone yourself)"
+fi
+aapt package -f -0 ogg -0 mus -M android/AndroidManifest.xml -S android/res -A $B/apk-assets -I $ANDROID_JAR -F $B/unsigned.apk
 python3 - "$B/unsigned.apk" "$B/dex/classes.dex" "$B/game-res.zip" <<'PY'
 import sys, zipfile
 apk, dex, res = sys.argv[1:4]

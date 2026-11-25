@@ -36,7 +36,7 @@ public class TestMain {
                 case "look": Mouse.injectDelta(Float.parseFloat(t[1]), Float.parseFloat(t[2])); break;
                 case "mdown": Mouse.injectButton(Integer.parseInt(t[1]), true); break;
                 case "mup": Mouse.injectButton(Integer.parseInt(t[1]), false); break;
-                case "give": case "craft": case "dump": case "counts": case "screen": case "kind": case "tapgui": case "closebtn": case "inv": case "tap": case "equip": case "unequip": game(t); break;
+                case "give": case "craft": case "dump": case "counts": case "screen": case "kind": case "tapgui": case "closebtn": case "music": case "inv": case "tap": case "equip": case "unequip": game(t); break;
             }
             if (p.crashText != null) break;
         }
@@ -60,6 +60,15 @@ public class TestMain {
                         }
                     } else if (t[0].equals("counts")) {
                         System.out.println("counts " + mcshim.craft.Crafting.counts());
+                    } else if (t[0].equals("music")) {
+                        // start background music now instead of after the game's long random delay
+                        java.lang.reflect.Field fa = mcshim.Hooks.minecraft.getClass().getSuperclass().getDeclaredField("A");
+                        fa.setAccessible(true);
+                        Object snd = fa.get(mcshim.Hooks.minecraft);
+                        java.lang.reflect.Field fi = snd.getClass().getDeclaredField("i");
+                        fi.setAccessible(true);
+                        fi.setInt(snd, 0);
+                        System.out.println("music countdown set to 0");
                     } else if (t[0].equals("closebtn")) {
                         int[] r = mcshim.ui.GuiTouch.closeButton(p.w, p.h);
                         System.out.println("closebtn " + (r == null ? "none" : r[0] + "," + r[1] + " - " + r[2] + "," + r[3]));

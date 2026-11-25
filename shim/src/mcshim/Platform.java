@@ -46,5 +46,8 @@ public abstract class Platform {
 
     public void mouseGrabbed(boolean grabbed) {}
 
+    /** Open a 16-bit stereo output at the given rate, or null for no sound. */
+    public mcshim.audio.AudioOut openAudio(int rate) { return null; }
+
     public void log(String s) { System.out.println("[mcshim] " + s); }
 }
