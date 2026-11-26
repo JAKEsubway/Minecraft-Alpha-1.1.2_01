@@ -9,3 +9,4 @@ shots/
 
 # Never commit the game itself
 *.jar
+ms-client-id.txt

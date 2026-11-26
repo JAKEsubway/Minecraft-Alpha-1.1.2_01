@@ -26,6 +26,8 @@ public final class GuiTouch {
         String cursorOwner, cursorField;                 // "inventory": player.inventory.cursor, "screen": container field
         String playerInv;
         String craftGrid, options;
+        String multiplayer, multiplayerParent, setScreen; // the "connect to server" screen (or null), its parent field, Minecraft.displayGuiScreen
+        String session, sessionName;                     // Minecraft.session and its user name field
         String[] textScreens;
     }
 
@@ -39,6 +41,7 @@ public final class GuiTouch {
         n.cursorOwner = "inventory"; n.playerInv = "b"; n.cursorField = "e";
         n.craftGrid = "gu"; n.options = "ay";
         n.textScreens = new String[] {"de", "nv", "gc"}; // chat, sign, server address
+        n.multiplayer = "gc"; n.multiplayerParent = "a"; n.setScreen = "a"; n.session = "i"; n.sessionName = "b";
         n = INDEV;
         n.mc = "net.minecraft.client.d"; n.screen = "o"; n.world = "d"; n.aim = "v"; n.aimClass = "net.minecraft.a.d.c"; n.aimEntity = "g"; n.player = "f";
         n.guiScreen = "net.minecraft.client.c.i"; n.guiW = "c"; n.guiH = "d"; n.guiList = "e"; n.button = "net.minecraft.client.c.r"; n.buttonId = "b";
@@ -53,7 +56,7 @@ public final class GuiTouch {
     private static Names v;
     private static Field fScreen, fWorld, fAim, fAimEntity, fPlayer, fInventory, fCursor;
     private static Field fList, fW, fH, fXSize, fYSize, fSlots, sInv, sX, sY, bId;
-    private static Class<?> cContainer, cCraftGrid, cOptions;
+    private static Class<?> cContainer, cCraftGrid, cOptions, cMultiplayer;
     private static Class<?>[] cText;
     private static Method mSlotAt;
 
@@ -84,6 +87,7 @@ public final class GuiTouch {
             cContainer = Class.forName(v.container, false, cl);
             cCraftGrid = Class.forName(v.craftGrid, false, cl);
             cOptions = v.options == null ? null : Class.forName(v.options, false, cl);
+            cMultiplayer = v.multiplayer == null ? null : Class.forName(v.multiplayer, false, cl);
             cText = new Class<?>[v.textScreens.length];
             for (int i = 0; i < cText.length; i++) cText[i] = Class.forName(v.textScreens[i], false, cl);
             fScreen = f(mc, v.screen);
@@ -118,6 +122,40 @@ public final class GuiTouch {
             ok = false;
         }
         return ok;
+    }
+
+    /** True while the "connect to server" screen is open (game thread). */
+    public static boolean multiplayerScreen() {
+        if (!init() || cMultiplayer == null) return false;
+        try {
+            return cMultiplayer.isInstance(screen());
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** Close the "connect to server" screen, back to the screen it came from. Game thread. */
+    public static void leaveMultiplayer() {
+        if (!multiplayerScreen()) return;
+        try {
+            Object mc = Hooks.minecraft, s = screen();
+            Object parent = f(cMultiplayer, v.multiplayerParent).get(s);
+            Class<?> k = mc.getClass();
+            while (!k.getName().equals(v.mc)) k = k.getSuperclass();
+            Method set = k.getDeclaredMethod(v.setScreen, Class.forName(v.guiScreen, false, k.getClassLoader()));
+            set.setAccessible(true);
+            set.invoke(mc, parent);
+        } catch (Throwable ignored) {}
+    }
+
+    /** Change the player's name in the running game (used for multiplayer). Game thread. */
+    public static void setPlayerName(String player) {
+        if (!init() || v.session == null || player == null) return;
+        try {
+            Object mc = Hooks.minecraft;
+            Object session = f(mc.getClass(), v.session).get(mc);
+            if (session != null) f(session.getClass(), v.sessionName).set(session, player);
+        } catch (Throwable ignored) {}
     }
 
     /** The item held on the pointer in a container screen, or null. */

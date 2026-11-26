@@ -45,6 +45,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             } catch (Exception ignored) {}
         }
 
+        Auth.init(this);
         root = new FrameLayout(this);
         SurfaceView sv = new SurfaceView(this);
         sv.getHolder().addCallback(this);
@@ -56,7 +57,18 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         mcshim.Hooks.setFrameListener(new mcshim.Hooks.FrameListener() {
             int lastKind = -1;
             String lastClose = "";
+            boolean mpBlocked;
             public void onFrame() {
+                // multiplayer only with a signed-in Minecraft account
+                if (mcshim.ui.GuiTouch.multiplayerScreen() && !Auth.signedIn()) {
+                    if (!mpBlocked) {
+                        mpBlocked = true;
+                        mcshim.ui.GuiTouch.leaveMultiplayer();   // back to the title screen
+                        runOnUiThread(new Runnable() { public void run() { showLoginRequired(); } });
+                    }
+                } else {
+                    mpBlocked = false;
+                }
                 mcshim.ui.GuiTouch.dedupeButtons();
                 mcshim.ui.GuiTouch.nudgeFirstMusic();
                 final int[] close = mcshim.ui.GuiTouch.closeButton(overlay.getWidth(), overlay.getHeight());
@@ -138,6 +150,30 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             lp.topMargin = (int) (12 * dp);
             col.addView(b, lp);
         }
+        accountRow = new TextView(this);
+        accountRow.setTextColor(0xFFE0E0E0);
+        accountRow.setTextSize(14);
+        accountRow.setGravity(android.view.Gravity.CENTER);
+        int pad = (int) (8 * dp);
+        accountRow.setPadding(pad, pad, pad, pad);
+        accountRow.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (Auth.signedIn()) {
+                    new android.app.AlertDialog.Builder(MainActivity.this)
+                            .setMessage("登出 " + Auth.name() + "？\nSign out?")
+                            .setPositiveButton("登出 Sign out", new android.content.DialogInterface.OnClickListener() {
+                                public void onClick(android.content.DialogInterface d, int w) { Auth.signOut(); updateAccountRow(); }
+                            })
+                            .setNegativeButton("取消 Cancel", null).show();
+                } else {
+                    showLogin();
+                }
+            }
+        });
+        android.widget.LinearLayout.LayoutParams al = new android.widget.LinearLayout.LayoutParams(-2, -2);
+        al.topMargin = (int) (14 * dp);
+        col.addView(accountRow, al);
+        updateAccountRow();
         TextView hint = new TextView(this);
         hint.setText("要換版本：關閉 App 再開啟");
         hint.setTextColor(0xFFA0A0A0);
@@ -190,7 +226,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                     runOnUiThread(new Runnable() { public void run() { showStatus("Loading " + game.label + "..."); } });
                     ClassLoader cl = Games.load(MainActivity.this, game);
                     runOnUiThread(new Runnable() { public void run() { showStatus(null); } });
-                    mcshim.Launch.start(cl, "Player");
+                    mcshim.Launch.start(cl, Auth.signedIn() ? Auth.name() : "Player");
                 } catch (Throwable t) {
                     java.io.StringWriter sw = new java.io.StringWriter();
                     t.printStackTrace(new java.io.PrintWriter(sw));
@@ -316,6 +352,101 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         });
         try { done.await(); } catch (InterruptedException e) { return null; }
         return result[0];
+    }
+
+    // ---- Microsoft account ----
+    private TextView accountRow;
+
+    private void updateAccountRow() {
+        if (accountRow == null) return;
+        accountRow.setText(Auth.signedIn()
+                ? "正版帳號：" + Auth.name() + "（點一下登出）"
+                : "未登入正版帳號（點一下登入；多人遊戲需要登入）");
+    }
+
+    /** Shown when the player opens Multiplayer without being signed in. */
+    void showLoginRequired() {
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("需要登入 Sign-in required")
+                .setMessage("多人遊戲需要登入擁有 Minecraft: Java 版的 Microsoft 帳號。\nMultiplayer needs a Microsoft account that owns Minecraft: Java Edition.")
+                .setPositiveButton("登入 Sign in", new android.content.DialogInterface.OnClickListener() {
+                    public void onClick(android.content.DialogInterface d, int w) { showLogin(); }
+                })
+                .setNegativeButton("取消 Cancel", null)
+                .setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
+                    public void onDismiss(android.content.DialogInterface d) { hideSystemUi(); }
+                })
+                .show();
+    }
+
+    /** Microsoft sign-in with a device code: the player enters the code at microsoft.com/link. */
+    void showLogin() {
+        final android.app.AlertDialog wait = new android.app.AlertDialog.Builder(this)
+                .setMessage("正在連線… Connecting…").setCancelable(false).show();
+        new Thread(new Runnable() {
+            public void run() {
+                try {
+                    final Auth.DeviceCode code = Auth.start();
+                    runOnUiThread(new Runnable() { public void run() { wait.dismiss(); showCode(code); } });
+                } catch (final Exception e) {
+                    runOnUiThread(new Runnable() { public void run() { wait.dismiss(); showAuthError(e); } });
+                }
+            }
+        }, "sign-in").start();
+    }
+
+    private void showCode(final Auth.DeviceCode code) {
+        final boolean[] cancelled = {false};
+        final android.app.AlertDialog dlg = new android.app.AlertDialog.Builder(this)
+                .setTitle("登入 Microsoft 帳號")
+                .setMessage("1. 打開 " + code.url + "\n2. 輸入代碼：\n\n        " + code.userCode
+                        + "\n\n3. 用擁有 Minecraft: Java 版的帳號登入並允許。\n完成後這裡會自動繼續。")
+                .setPositiveButton("複製代碼並開啟網頁", null)
+                .setNegativeButton("取消 Cancel", new android.content.DialogInterface.OnClickListener() {
+                    public void onClick(android.content.DialogInterface d, int w) { cancelled[0] = true; }
+                })
+                .setCancelable(false)
+                .show();
+        dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { // keeps the dialog open
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("code", code.userCode));
+                try {
+                    startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(code.url)));
+                } catch (Exception ignored) {}
+            }
+        });
+        new Thread(new Runnable() {
+            public void run() {
+                try {
+                    final String player = Auth.finish(code, cancelled);
+                    mcshim.Hooks.runOnGameThread(new Runnable() {
+                        public void run() { mcshim.ui.GuiTouch.setPlayerName(player); }
+                    });
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+                            dlg.dismiss();
+                            updateAccountRow();
+                            hideSystemUi();
+                            android.widget.Toast.makeText(MainActivity.this, "已登入：" + player, android.widget.Toast.LENGTH_LONG).show();
+                        }
+                    });
+                } catch (final Exception e) {
+                    runOnUiThread(new Runnable() {
+                        public void run() { dlg.dismiss(); if (!cancelled[0]) showAuthError(e); else hideSystemUi(); }
+                    });
+                }
+            }
+        }, "sign-in wait").start();
+    }
+
+    private void showAuthError(Exception e) {
+        String m = e instanceof Auth.AuthException ? e.getMessage() : "登入失敗 Sign-in failed:\n" + e;
+        new android.app.AlertDialog.Builder(this).setTitle("無法登入").setMessage(m)
+                .setPositiveButton("OK", null)
+                .setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
+                    public void onDismiss(android.content.DialogInterface d) { hideSystemUi(); }
+                }).show();
     }
 
     // ---- hardware keys (back button, Bluetooth / USB keyboards) ----

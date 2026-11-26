@@ -6,6 +6,8 @@
 
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="28" />
     <uses-feature android:glEsVersion="0x00010001" android:required="true" />
+    <!-- multiplayer and Microsoft sign-in -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:label="Minecraft"

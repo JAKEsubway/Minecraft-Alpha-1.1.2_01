@@ -24,6 +24,8 @@ code is not changed.
 - Soft keyboard pops up for chat, signs and server addresses
 - Fixes two Alpha bugs that matter on phones: random "Comparison method violates its general
   contract!" crashes, and duplicated buttons after leaving the Controls screen
+- Microsoft sign-in (device code) for accounts that own Java Edition; multiplayer is locked until you sign in,
+  and online-mode servers are joined through today's session server (needs your own approved Azure client ID)
 - Version picker: put several versions in one APK; each runs in its own class loader with its own options and saves
 - Indev 20100223 works offline: level generation, sounds and Load/Save file (the minecraft.net checks it made are answered locally)
 - Desktop test harness: run the same layer on a PC (Xvfb + Mesa) with scripted input and screenshots
@@ -135,6 +137,36 @@ Indev 也用同一份音效（Indev 的音效名稱和 Alpha 相同）。Indev �
 
 **背景音樂：**放在 `music/`（例如 `calm1.ogg`、`calm2.ogg`、`calm3.ogg`）。原版要隨機等 0～10 分鐘才播第一首，
 手機上常常還沒聽到就關掉了，所以每次開遊戲的第一首改成 30～90 秒內開始，之後照原版的間隔。
+
+### 正版登入與多人遊戲
+
+**沒有登入正版帳號就不能玩多人遊戲**：點標題畫面的 Multiplayer 會被擋下，跳出「需要登入」對話框。
+
+登入方式（Microsoft 裝置代碼登入，App 裡不會輸入密碼）：
+
+1. 在「選擇版本」畫面下方點「未登入正版帳號」，或在被擋下的對話框點「登入」
+2. 點「複製代碼並開啟網頁」，瀏覽器會開 microsoft.com/link，貼上代碼
+3. 用**擁有 Minecraft: Java 版**的 Microsoft 帳號登入並允許，回到 App 會自動完成
+
+登入後遊戲裡的名字就是你的正版玩家名稱；加入正版驗證（online-mode）的伺服器時，
+App 會代替當年已關閉的 minecraft.net，改用現在的 Mojang session server 驗證。
+登入資料只存在 App 的私人資料夾，遊戲本身拿不到權杖。要登出就在「選擇版本」畫面點自己的名字。
+只有一個版本的 APK 不會顯示選擇畫面，這時從 Multiplayer 的對話框登入。
+
+**打包時要提供你自己的 Azure 應用程式 ID**（Mojang 規定第三方程式必須自己申請，不能借用別的啟動器的）：
+
+1. 到 [Azure 入口網站](https://portal.azure.com) → Microsoft Entra ID → 應用程式註冊 → 新增註冊，
+   帳戶類型選「**僅限個人 Microsoft 帳戶**」
+2. 建好後到「驗證」，把「**允許公用用戶端流程**」設為「是」
+3. 填 Mojang 的申請表 <https://aka.ms/mce-reviewappid>，送出應用程式（用戶端）ID，等待核准
+   （沒核准前登入會停在「沒有獲准使用 Minecraft API（403）」）
+4. 把 ID 寫進專案資料夾的 `ms-client-id.txt`（已在 `.gitignore`，不會上傳），或打包前設定
+   `export MCPORT_MS_CLIENT_ID=你的ID`，再執行 `build-apk.sh`。打包訊息會顯示 `Microsoft sign-in: on`
+
+沒有提供 ID 的 APK 照樣能玩單人，但無法登入，多人遊戲維持鎖定。
+
+注意：Alpha 時代的伺服器軟體驗證玩家用的是已關閉的舊網址，所以現在大多數 Alpha 伺服器是非正版驗證（offline-mode）；
+正版驗證只對改用新 session server 的伺服器（或透過 ViaProxy 之類的代理）有效。
 
 ### 存檔位置
 
@@ -250,7 +282,8 @@ shim/src/mcshim/        轉接層（Android 與電腦共用）
   sound/                javax.sound 空殼
   Hooks.java            遊戲執行緒與 UI 之間的橋樑（每幀執行排隊的工作）
   Launch.java           啟動任一版本：Alpha 用 Minecraft.main，Indev 用當年網頁上的 applet 方式
-  Net.java              代替已關閉的 minecraft.net 回答 Indev 的登入檢查、資源清單、線上存檔清單
+  Net.java              代替已關閉的 minecraft.net 回答 Indev 的登入檢查、資源清單、線上存檔清單，
+                        並把 Alpha 的 joinserver.jsp 轉給已登入的帳號（現在的 session server）
   swing/                Indev 啟動失敗時的訊息框 → 錯誤畫面
   craft/                測試用：讀配方、讀寫背包（電腦端測試指令 give / inv 等）
   ui/GuiTouch.java      原版介面的觸控判斷（合成格放 1 個、對準格子、防誤丟）與 Alpha 按鈕重複錯誤的修正；
@@ -258,7 +291,8 @@ shim/src/mcshim/        轉接層（Android 與電腦共用）
   audio/                軟體 OpenAL 混音器（位置、距離衰減、左右聲道、音高、音樂串流）
   lwjgl/openal/         遊戲音效庫呼叫的 OpenAL 函式，接到上面的混音器
   SafeSort.java         取代遊戲排序，避免 Alpha 的比較器在新版 Java／Android 上崩潰
-android/                Android 端：MainActivity（含選擇版本畫面、Indev 檔案對話框）、Games（各版本的載入與資料夾）、EGL、AudioTrack 聲音輸出、音效安裝（SoundInstaller）、觸控（TouchOverlay）、
+android/                Android 端：MainActivity（含選擇版本畫面、Indev 檔案對話框、登入畫面與多人遊戲鎖）、
+                        Auth（Microsoft → Xbox → Minecraft 登入）、Games（各版本的載入與資料夾）、EGL、AudioTrack 聲音輸出、音效安裝（SoundInstaller）、觸控（TouchOverlay）、
                         自動鍵盤（TextInput）、鍵盤對應、Manifest、圖示
 desktop/                電腦端測試平台（真的 LWJGL 2）
 ```
@@ -268,7 +302,8 @@ desktop/                電腦端測試平台（真的 LWJGL 2）
 - 挖掘／攻擊對準畫面中央準心，不是手指點的位置（同原版的分離控制）
 - 合成格放 1 個、防誤丟、自動鍵盤等觸控調整依賴混淆名稱（`shim/src/mcshim/ui/GuiTouch.java`，目前有 a1.1.2_01 和 in-20100223），
   其他版本可以啟動，但這些功能會退回一般點擊
-- 多人遊戲沒有測試過
+- 多人遊戲沒有實際連線測試過；正版登入需要自己申請並核准的 Azure 應用程式 ID
+- Indev 沒有多人遊戲介面
 - 目前驗證過 Alpha 1.1.2_01 和 Indev 20100223；其他版本如果用到不同的 API，`Check` 步驟會列出缺少的部分
 - 換版本要關掉 App 重開（每個版本各自載入，同一次執行只能跑一個）
 - 截圖（F2）不會存檔

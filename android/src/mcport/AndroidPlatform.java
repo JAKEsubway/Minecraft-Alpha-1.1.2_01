@@ -191,5 +191,7 @@ final class AndroidPlatform extends Platform {
         return act.chooseFile(save, dir, filter);
     }
 
+    public boolean joinServer(String serverId) { return Auth.joinServer(serverId); }
+
     public void log(String s) { Log.i(TAG, s); }
 }

@@ -56,5 +56,11 @@ public abstract class Platform {
      */
     public String chooseFile(boolean save, String title, String dir, java.io.FilenameFilter filter) { return null; }
 
+    /**
+     * Join an online-mode server with the signed-in account (Mojang session
+     * server). Network thread. False = not signed in or refused.
+     */
+    public boolean joinServer(String serverId) { return false; }
+
     public void log(String s) { System.out.println("[mcshim] " + s); }
 }

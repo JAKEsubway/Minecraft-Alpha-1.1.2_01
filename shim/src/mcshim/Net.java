@@ -37,7 +37,26 @@ public final class Net {
             return new ByteArrayInputStream("1\n".getBytes("UTF-8"));
         }
         if (s.equals("http://www.minecraft.net/resources/")) return resourceList();
+        if (s.contains("minecraft.net/game/joinserver.jsp?")) {
+            // Alpha's online-mode handshake: answer it with the signed-in account
+            // through today's session server (the game's session id is a dummy)
+            String id = query(s, "serverId");
+            boolean ok = id != null && Platform.get().joinServer(id);
+            return new ByteArrayInputStream((ok ? "ok" : "Not signed in to a Minecraft account") .getBytes("UTF-8"));
+        }
         return url.openStream();
+    }
+
+    private static String query(String url, String key) {
+        int q = url.indexOf('?');
+        if (q < 0) return null;
+        for (String kv : url.substring(q + 1).split("&")) {
+            int e = kv.indexOf('=');
+            if (e > 0 && kv.substring(0, e).equals(key)) {
+                try { return java.net.URLDecoder.decode(kv.substring(e + 1), "UTF-8"); } catch (Exception x) { return null; }
+            }
+        }
+        return null;
     }
 
     /**

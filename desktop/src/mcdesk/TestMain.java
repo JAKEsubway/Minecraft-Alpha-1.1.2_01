@@ -61,7 +61,7 @@ public class TestMain {
                 case "look": Mouse.injectDelta(Float.parseFloat(t[1]), Float.parseFloat(t[2])); break;
                 case "mdown": Mouse.injectButton(Integer.parseInt(t[1]), true); break;
                 case "mup": Mouse.injectButton(Integer.parseInt(t[1]), false); break;
-                case "give": case "craft": case "dump": case "counts": case "screen": case "kind": case "tapgui": case "closebtn": case "music": case "aim": case "turn": case "pig": case "pigstat": case "taplook": case "inv": case "tap": case "equip": case "unequip": game(t); break;
+                case "mp": case "setname": case "give": case "craft": case "dump": case "counts": case "screen": case "kind": case "tapgui": case "closebtn": case "music": case "aim": case "turn": case "pig": case "pigstat": case "taplook": case "inv": case "tap": case "equip": case "unequip": game(t); break;
             }
             if (p.crashText != null) break;
         }
@@ -106,6 +106,14 @@ public class TestMain {
                             for (java.lang.reflect.Field f : c.getDeclaredFields())
                                 if (f.getType() == int.class && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) { f.setAccessible(true); b.append(' ').append(c.getName()).append('.').append(f.getName()).append('=').append(f.getInt(pig)); }
                         System.out.println(b);
+                    } else if (t[0].equals("mp")) {
+                        System.out.println("multiplayer screen=" + mcshim.ui.GuiTouch.multiplayerScreen());
+                        if (t.length > 1) { mcshim.ui.GuiTouch.leaveMultiplayer(); System.out.println("left -> multiplayer screen=" + mcshim.ui.GuiTouch.multiplayerScreen()); }
+                    } else if (t[0].equals("setname")) {
+                        mcshim.ui.GuiTouch.setPlayerName(t[1]);
+                        Object mc = mcshim.Hooks.minecraft;
+                        Object ses = field(mc.getClass().getSuperclass(), "i").get(mc);
+                        System.out.println("session name=" + field(ses.getClass(), "b").get(ses));
                     } else if (t[0].equals("taplook")) {
                         // same decision the phone makes on a quick tap in the world (split controls:
                         // whatever the crosshair is on, wherever the finger is)

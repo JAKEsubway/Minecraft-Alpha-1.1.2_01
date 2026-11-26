@@ -73,6 +73,16 @@ for n in sorted(os.listdir(src), key=int):
     print('      version: %s (%s.jar)' % (label, gid))
 open(os.path.join(dst, 'index.txt'), 'w', encoding='utf-8').write('\n'.join(index) + '\n')
 PY
+# Microsoft sign-in (needed for multiplayer): your Azure app's client ID,
+# from $MCPORT_MS_CLIENT_ID or the file ms-client-id.txt next to this script
+CLIENT_ID=${MCPORT_MS_CLIENT_ID:-}
+[ -z "$CLIENT_ID" ] && [ -f ms-client-id.txt ] && CLIENT_ID=$(tr -d ' \r\n' < ms-client-id.txt)
+if [ -n "$CLIENT_ID" ]; then
+  printf '%s' "$CLIENT_ID" > $B/apk-assets/auth.txt
+  echo "      Microsoft sign-in: on"
+else
+  echo "      Microsoft sign-in: off (no client ID; multiplayer stays locked) - see README"
+fi
 if [ -n "$SOUNDS" ]; then
   python3 tools/collect_sounds.py "$SOUNDS" $B/apk-assets
 else
