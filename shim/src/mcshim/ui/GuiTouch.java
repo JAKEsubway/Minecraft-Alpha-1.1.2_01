@@ -157,6 +157,89 @@ public final class GuiTouch {
         }
     }
 
+    // ---- attack assist ----
+    private static boolean aTried, aOk;
+    private static Field fEntities, eX, eY, eZ, eYaw, ePitch, eW, eH, eYOff, eHealth;
+    private static Class<?> cLiving;
+    private static Method mVec, mRay, mSwing, mAttack;
+
+    private static synchronized boolean initAssist() {
+        if (aTried) return aOk;
+        aTried = true;
+        try {
+            ClassLoader cl = GuiTouch.class.getClassLoader();
+            Class<?> world = Class.forName("cn", false, cl), ent = Class.forName("kh", false, cl);
+            Class<?> vec = Class.forName("aj", false, cl), aim = Class.forName("mf", false, cl);
+            cLiving = Class.forName("ge", false, cl);
+            fEntities = f(world, "a");          // loaded entities
+            eX = f(ent, "ak"); eY = f(ent, "al"); eZ = f(ent, "am");
+            eYaw = f(ent, "aq"); ePitch = f(ent, "ar");
+            eW = f(ent, "aC"); eH = f(ent, "aD"); eYOff = f(ent, "aB");
+            eHealth = f(cLiving, "E");
+            Class<?> player = Class.forName("bi", false, cl); // the local player
+            mSwing = player.getMethod("w");          // swing the arm
+            mAttack = player.getMethod("a", ent);    // attack with the held item, as a click on the creature does
+            mVec = vec.getDeclaredMethod("b", double.class, double.class, double.class);
+            mRay = world.getDeclaredMethod("a", vec, vec);
+            aOk = init();
+        } catch (Throwable t) {
+            aOk = false;
+        }
+        return aOk;
+    }
+
+    /** How far a creature can be hit from (the game's own reach for mobs). */
+    private static final double REACH = 4.0;
+    /** Extra margin around a creature's body that still counts as "on it", in blocks. */
+    private static final double MARGIN = 0.75;
+
+    /**
+     * Phones can't aim as precisely as a mouse. Find the living creature closest
+     * to the crosshair within reach, treating each body as MARGIN blocks wider,
+     * with no block in between, and attack it exactly the way the game's own
+     * click does (swing + attack with the held item). Returns false if there
+     * is none. Game thread only.
+     */
+    public static boolean attackNearCrosshair() {
+        if (!initAssist()) return false;
+        try {
+            Object mc = Hooks.minecraft;
+            Object player = fPlayer.get(mc), world = fWorld.get(mc);
+            if (player == null || world == null) return false;
+            double px = eX.getDouble(player), py = eY.getDouble(player) + 0.12, pz = eZ.getDouble(player);
+            double yaw = Math.toRadians(eYaw.getFloat(player)), pitch = Math.toRadians(ePitch.getFloat(player));
+            double lx = -Math.sin(yaw) * Math.cos(pitch), ly = -Math.sin(pitch), lz = Math.cos(yaw) * Math.cos(pitch);
+            Object best = null;
+            double bestScore = Double.MAX_VALUE;
+            Object[] list = ((List<?>) fEntities.get(world)).toArray();
+            for (Object e : list) {
+                if (e == player || !cLiving.isInstance(e) || eHealth.getInt(e) <= 0) continue;
+                float w = eW.getFloat(e), h = eH.getFloat(e);
+                double cx = eX.getDouble(e), cz = eZ.getDouble(e);
+                double cy = eY.getDouble(e) - eYOff.getFloat(e) + h / 2.0;
+                double dx = cx - px, dy = cy - py, dz = cz - pz;
+                double along = dx * lx + dy * ly + dz * lz;            // distance along the view
+                if (along <= 0 || along > REACH + w / 2.0) continue;
+                // perpendicular distance from the view ray to the body's centre
+                double ox = dx - along * lx, oy = dy - along * ly, oz = dz - along * lz;
+                double off = Math.sqrt(ox * ox + oy * oy + oz * oz);
+                double radius = Math.max(w, h) / 2.0 + MARGIN;
+                if (off > radius) continue;
+                // nothing solid between the eyes and the creature
+                Object from = mVec.invoke(null, px, py, pz), to = mVec.invoke(null, cx, cy, cz);
+                if (mRay.invoke(world, from, to) != null) continue;
+                double score = off / radius + along * 0.05; // prefer centred, then nearer
+                if (score < bestScore) { bestScore = score; best = e; }
+            }
+            if (best == null) return false;
+            mSwing.invoke(player);
+            mAttack.invoke(player, best);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     /** True when the crosshair is on a mob/animal/player (game thread). */
     public static boolean aimingAtEntity() {
         if (!init()) return false;

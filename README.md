@@ -16,7 +16,7 @@ code is not changed.
 
 **Features**
 
-- Pocket Edition 0.12-style touch controls (D-pad, jump, sneak; tap a creature to attack, tap a block to use/place, hold to mine)
+- Pocket Edition 0.12-style touch controls (D-pad, jump, sneak; tap to attack — with aim assist for creatures near the crosshair — or use/place, hold to mine)
 - The game's original screens, tuned for fingers: tap on release, long-press = right click,
   tap a crafting cell while holding items to place one, snap-to-slot, no accidental drops
 - Sound: a software OpenAL mixer (3D position, distance, panning, pitch, streamed music) on Android's AudioTrack —
@@ -177,7 +177,8 @@ App 第一次開啟時會把音效複製到遊戲資料夾，畫面會顯示 `In
 - **十字鍵（左下）：**移動，手指可以在按鈕間滑動；往前走時會出現兩個斜向按鈕
 - **十字鍵中間：**蹲下，點一下切換開關
 - **右下角 ^：**跳躍，按住會連續跳（離右邊緣稍有距離，拇指比較好按）
-- **畫面其他地方：**拖曳轉視角；點一下＝準心對著生物就攻擊、否則使用／放置；按住不動＝挖掘（或連續攻擊）。都是對準畫面中央準心
+- **畫面其他地方：**拖曳轉視角；點一下＝攻擊生物，否則使用／放置；按住不動＝挖掘。都是對準畫面中央準心
+  - **攻擊輔助：**手指不像滑鼠那麼準，所以準心在生物附近（身體外約 0.75 格內）、在原版攻擊距離內、中間沒有方塊擋住時，點一下也會打中最靠近準心的那隻
 - **熱鍵列：**點一下選格子，按住約 0.5 秒丟出物品
 - **熱鍵列右邊「⋯」：**打開背包；**右上角 ‖：**暫停；**返回鍵：**Esc
 

@@ -36,7 +36,7 @@ public class TestMain {
                 case "look": Mouse.injectDelta(Float.parseFloat(t[1]), Float.parseFloat(t[2])); break;
                 case "mdown": Mouse.injectButton(Integer.parseInt(t[1]), true); break;
                 case "mup": Mouse.injectButton(Integer.parseInt(t[1]), false); break;
-                case "give": case "craft": case "dump": case "counts": case "screen": case "kind": case "tapgui": case "closebtn": case "music": case "aim": case "pig": case "pigstat": case "taplook": case "inv": case "tap": case "equip": case "unequip": game(t); break;
+                case "give": case "craft": case "dump": case "counts": case "screen": case "kind": case "tapgui": case "closebtn": case "music": case "aim": case "turn": case "pig": case "pigstat": case "taplook": case "inv": case "tap": case "equip": case "unequip": game(t); break;
             }
             if (p.crashText != null) break;
         }
@@ -83,9 +83,17 @@ public class TestMain {
                         System.out.println(b);
                     } else if (t[0].equals("taplook")) {
                         // same decision the phone makes on a quick tap in the world
-                        int btn = mcshim.ui.GuiTouch.aimingAtEntity() ? 0 : 1;
-                        Mouse.injectButton(btn, true); Mouse.injectButton(btn, false);
-                        System.out.println("taplook -> " + (btn == 0 ? "attack" : "use/place"));
+                        String what;
+                        if (mcshim.ui.GuiTouch.aimingAtEntity()) { Mouse.injectButton(0, true); Mouse.injectButton(0, false); what = "attack (on crosshair)"; }
+                        else if (mcshim.ui.GuiTouch.attackNearCrosshair()) what = "attack (assist)";
+                        else { Mouse.injectButton(1, true); Mouse.injectButton(1, false); what = "use/place"; }
+                        System.out.println("taplook -> " + what);
+                    } else if (t[0].equals("turn")) {
+                        // turn the player's view by yaw/pitch degrees (to aim beside the pig)
+                        Object pl = field(mcshim.Hooks.minecraft.getClass().getSuperclass(), "g").get(mcshim.Hooks.minecraft);
+                        Class<?> ent = Class.forName("kh");
+                        field(ent, "aq").setFloat(pl, field(ent, "aq").getFloat(pl) + Float.parseFloat(t[1]));
+                        field(ent, "ar").setFloat(pl, field(ent, "ar").getFloat(pl) + Float.parseFloat(t[2]));
                     } else if (t[0].equals("aim")) {
                         System.out.println("aim entity=" + mcshim.ui.GuiTouch.aimingAtEntity());
                     } else if (t[0].equals("music")) {

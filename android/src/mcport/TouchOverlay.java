@@ -481,9 +481,15 @@ final class TouchOverlay extends View {
                     // tap: attack if the crosshair is on a creature, otherwise use / place
                     Hooks.runOnGameThread(new Runnable() {
                         public void run() {
-                            int b = GuiTouch.aimingAtEntity() ? 0 : 1;
-                            Mouse.injectButton(b, true);
-                            Mouse.injectButton(b, false);
+                            // on a creature: attack (normal click); next to one: attack it anyway
+                            // (fingers aim less precisely than a mouse); otherwise use / place
+                            if (GuiTouch.aimingAtEntity()) {
+                                Mouse.injectButton(0, true);
+                                Mouse.injectButton(0, false);
+                            } else if (!GuiTouch.attackNearCrosshair()) {
+                                Mouse.injectButton(1, true);
+                                Mouse.injectButton(1, false);
+                            }
                         }
                     });
                 }
