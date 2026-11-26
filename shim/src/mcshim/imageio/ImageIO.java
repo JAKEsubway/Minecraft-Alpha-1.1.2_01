@@ -31,4 +31,7 @@ public final class ImageIO {
     }
 
     public static void setUseCache(boolean b) {}
+    /** Screenshots are not saved on this port. */
+    public static boolean write(mcshim.awt.image.RenderedImage im, String fmt, java.io.OutputStream out) { return false; }
+    public static boolean write(mcshim.awt.image.RenderedImage im, String fmt, java.io.File out) { return false; }
 }

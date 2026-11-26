@@ -11,7 +11,9 @@ public class Applet extends Panel {
     public void start() {}
     public void stop() {}
     public void destroy() {}
-    public String getParameter(String name) { return null; }
+    /** Page parameters the web page used to pass (username, sessionid...). */
+    public static final java.util.Map<String, String> PARAMS = new java.util.HashMap<String, String>();
+    public String getParameter(String name) { return PARAMS.get(name); }
     public URL getDocumentBase() { try { return new URL("http://www.minecraft.net/game/"); } catch (MalformedURLException e) { return null; } }
     public URL getCodeBase() { return getDocumentBase(); }
     public boolean isActive() { return true; }

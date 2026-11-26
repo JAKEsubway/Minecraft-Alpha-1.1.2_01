@@ -200,6 +200,24 @@ public final class GL11 {
         matChanged();
     }
 
+    public static void glMultMatrix(FloatBuffer b) {
+        final float[] m = new float[16];
+        int p = b.position();
+        for (int k = 0; k < 16; k++) m[k] = b.get(p + k);
+        if (R() && rec(new Cmd() { void run() { mulRight(top(), m); matChanged(); } })) return;
+        mulRight(top(), m);
+        matChanged();
+    }
+
+    /** Only capability queries are asked for (occlusion counter bits, GL profile): GLES has none. */
+    public static void glGetInteger(int pname, java.nio.IntBuffer out) {
+        int p = out.position();
+        out.put(p, 0);
+    }
+
+    /** Pixel packing only matters for screenshots, which this port does not save. */
+    public static void glPixelStorei(int pname, int param) {}
+
     public static void glGetFloat(int pname, FloatBuffer out) {
         int i = pname - GL_MODELVIEW_MATRIX;
         int p = out.position();

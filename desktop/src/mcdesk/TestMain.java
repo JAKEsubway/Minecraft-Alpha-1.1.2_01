@@ -16,8 +16,16 @@ public class TestMain {
         mcshim.Hooks.setFrameListener(new mcshim.Hooks.FrameListener() {   // same per-frame hook as the Android app
             public void onFrame() { mcshim.ui.GuiTouch.dedupeButtons(); mcshim.ui.GuiTouch.nudgeFirstMusic(); }
         });
-        Class.forName("net.minecraft.client.Minecraft").getMethod("main", String[].class)
-                .invoke(null, (Object) new String[] {"Tester", "-"});
+        ClassLoader gameLoader = TestMain.class.getClassLoader();
+        String sep = System.getenv("MCDESK_GAME_PATH");
+        if (sep != null) {   // like the phone: the game in its own class loader, the shim in the parent
+            String[] parts = sep.split(java.io.File.pathSeparator);
+            java.net.URL[] urls = new java.net.URL[parts.length];
+            for (int i = 0; i < parts.length; i++) urls[i] = new java.io.File(parts[i]).toURI().toURL();
+            gameLoader = new java.net.URLClassLoader(urls, TestMain.class.getClassLoader());
+            System.out.println("game in its own class loader");
+        }
+        mcshim.Launch.start(gameLoader, "Tester");
         Thread.sleep(500);
         String script = args.length > 1 ? args[1] : "";
         for (String step : script.split(";")) {
@@ -44,6 +52,7 @@ public class TestMain {
                     game(new String[] {"taplook", String.valueOf(x), String.valueOf(y)});
                     break;
                 }
+                case "file": p.nextFile = t.length > 1 ? t[1] : null; break;
                 case "click": click(Integer.parseInt(t[1]), Integer.parseInt(t[2])); break;
                 case "move": Mouse.injectMove(Integer.parseInt(t[1]), p.h - 1 - Integer.parseInt(t[2])); waitFrames(2); break;
                 case "key": Keyboard.tap(Integer.parseInt(t[1]), (char) 0); break;
@@ -98,13 +107,11 @@ public class TestMain {
                                 if (f.getType() == int.class && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) { f.setAccessible(true); b.append(' ').append(c.getName()).append('.').append(f.getName()).append('=').append(f.getInt(pig)); }
                         System.out.println(b);
                     } else if (t[0].equals("taplook")) {
-                        // same decision the phone makes on a quick tap in the world
-                        // same decision the phone makes on a quick tap at window pixel (x, y); default = screen centre
-                        int x = t.length > 2 ? Integer.parseInt(t[1]) : p.w / 2, y = t.length > 2 ? Integer.parseInt(t[2]) : p.h / 2;
-                        String what;
-                        if (mcshim.ui.GuiTouch.attackAtScreen(x, y, p.w, p.h)) what = "attack";
-                        else { Mouse.injectButton(1, true); Mouse.injectButton(1, false); what = "use/place"; }
-                        System.out.println("taplook " + x + "," + y + " -> " + what);
+                        // same decision the phone makes on a quick tap in the world (split controls:
+                        // whatever the crosshair is on, wherever the finger is)
+                        int b = mcshim.ui.GuiTouch.aimingAtEntity() ? 0 : 1;
+                        Mouse.injectButton(b, true); Mouse.injectButton(b, false);
+                        System.out.println("taplook -> " + (b == 0 ? "attack" : "use/place"));
                     } else if (t[0].equals("turn")) {
                         // turn the player's view by yaw/pitch degrees (to aim beside the pig)
                         Object pl = field(mcshim.Hooks.minecraft.getClass().getSuperclass(), "g").get(mcshim.Hooks.minecraft);

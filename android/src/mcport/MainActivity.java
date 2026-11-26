@@ -24,6 +24,9 @@ import mcshim.lwjgl.input.Mouse;
 public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private static boolean gameStarted;
     private static AndroidPlatform platform;
+    private static Games.Game chosen;      // the version being played (one per process)
+    private boolean surfaceReady;
+    private View picker;
 
     private FrameLayout root;
     private TouchOverlay overlay;
@@ -82,6 +85,69 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         if (platform == null) platform = new AndroidPlatform(this);
         else platform.setActivity(this);
         overlay.setGrabbed(Mouse.isGrabbed());
+
+        if (chosen == null) {
+            java.util.List<Games.Game> games = Games.list(this);
+            if (games.size() == 1) chosen = games.get(0);
+            else if (games.isEmpty()) showCrash("This APK contains no game.");
+            else showPicker(games);
+        }
+    }
+
+    /** Version picker, shown at start when the APK holds more than one version. */
+    private void showPicker(final java.util.List<Games.Game> games) {
+        final android.content.SharedPreferences prefs = getSharedPreferences("mcport", MODE_PRIVATE);
+        String last = prefs.getString("version", null);
+        float dp = getResources().getDisplayMetrics().density;
+        android.widget.LinearLayout col = new android.widget.LinearLayout(this);
+        col.setOrientation(android.widget.LinearLayout.VERTICAL);
+        col.setGravity(android.view.Gravity.CENTER);
+        col.setBackgroundColor(0xFF2B2118);
+        TextView title = new TextView(this);
+        title.setText("選擇版本  Select version");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(20);
+        title.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        title.setGravity(android.view.Gravity.CENTER);
+        title.setShadowLayer(0, 2 * dp, 2 * dp, 0xFF3F3F3F);
+        col.addView(title, new android.widget.LinearLayout.LayoutParams(-2, -2));
+        for (final Games.Game g : games) {
+            TextView b = new TextView(this);
+            boolean wasLast = g.id.equals(last);
+            b.setText(g.label + (wasLast ? "   （上次）" : ""));
+            b.setTextColor(wasLast ? 0xFFFFFFA0 : Color.WHITE);
+            b.setTextSize(17);
+            b.setTypeface(Typeface.MONOSPACE);
+            b.setShadowLayer(0, 2 * dp, 2 * dp, 0xFF3F3F3F);
+            b.setGravity(android.view.Gravity.CENTER);
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setColor(0xFF6F6F6F);
+            bg.setStroke((int) (2 * dp), Color.BLACK);
+            b.setBackgroundDrawable(bg);
+            b.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    prefs.edit().putString("version", g.id).apply();
+                    chosen = g;
+                    root.removeView(picker);
+                    picker = null;
+                    hideSystemUi();
+                    if (surfaceReady) startGame();
+                }
+            });
+            android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams((int) (300 * dp), (int) (48 * dp));
+            lp.topMargin = (int) (12 * dp);
+            col.addView(b, lp);
+        }
+        TextView hint = new TextView(this);
+        hint.setText("要換版本：關閉 App 再開啟");
+        hint.setTextColor(0xFFA0A0A0);
+        hint.setTextSize(13);
+        android.widget.LinearLayout.LayoutParams hl = new android.widget.LinearLayout.LayoutParams(-2, -2);
+        hl.topMargin = (int) (18 * dp);
+        col.addView(hint, hl);
+        col.setClickable(true); // keep touches away from the game underneath
+        picker = col;
+        root.addView(col, new FrameLayout.LayoutParams(-1, -1));
     }
 
     private void hideSystemUi() {
@@ -98,13 +164,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     private void startGame() {
-        if (gameStarted) return;
+        if (gameStarted || chosen == null) return;
         gameStarted = true;
-        File home = getExternalFilesDir(null);
-        if (home == null) home = getFilesDir();
+        final Games.Game game = chosen;
+        File root = getExternalFilesDir(null);
+        if (root == null) root = getFilesDir();
+        final File home = Games.home(root, game);
+        home.mkdirs();
         System.setProperty("user.home", home.getAbsolutePath());
         Platform.INSTANCE = platform;
-        final File resources = new File(home, ".minecraft/resources");
+        final File resources = new File(root, ".minecraft/resources");
+        final File ownResources = new File(home, ".minecraft/resources");
         new Thread(new Runnable() {
             public void run() {
                 // copy sounds packed into this APK (if any) to where the game looks for them
@@ -115,10 +185,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                         });
                     }
                 });
+                if (!ownResources.equals(resources)) Games.linkResources(resources, ownResources);
                 try {
-                    Class.forName("net.minecraft.client.Minecraft")
-                            .getMethod("main", String[].class)
-                            .invoke(null, (Object) new String[] {"Player", "-"});
+                    runOnUiThread(new Runnable() { public void run() { showStatus("Loading " + game.label + "..."); } });
+                    ClassLoader cl = Games.load(MainActivity.this, game);
+                    runOnUiThread(new Runnable() { public void run() { showStatus(null); } });
+                    mcshim.Launch.start(cl, "Player");
                 } catch (Throwable t) {
                     java.io.StringWriter sw = new java.io.StringWriter();
                     t.printStackTrace(new java.io.PrintWriter(sw));
@@ -133,10 +205,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     public void surfaceChanged(SurfaceHolder h, int format, int w, int hgt) {
         platform.setSurface(h.getSurface(), w, hgt);
+        surfaceReady = true;
         startGame();
     }
 
     public void surfaceDestroyed(SurfaceHolder h) {
+        surfaceReady = false;
         platform.clearSurface();
     }
 
@@ -194,6 +268,54 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                 root.addView(sv);
             }
         });
+    }
+
+    /**
+     * Indev's "Load file..." / "Save file...": a list of the levels in dir, or a
+     * name to save under. Called from a game worker thread; blocks until answered.
+     */
+    String chooseFile(final boolean save, final String dir, final java.io.FilenameFilter filter) {
+        final String[] result = {null};
+        final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+        final File d = new File(dir == null ? System.getProperty("user.home") : dir);
+        runOnUiThread(new Runnable() {
+            public void run() {
+                android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(MainActivity.this);
+                final File[] files = d.listFiles(filter);
+                if (files != null) java.util.Arrays.sort(files, new java.util.Comparator<File>() {
+                    public int compare(File x, File y) { return Long.compare(y.lastModified(), x.lastModified()); }
+                });
+                if (save) {
+                    final android.widget.EditText name = new android.widget.EditText(MainActivity.this);
+                    name.setSingleLine();
+                    name.setText("level");
+                    name.selectAll();
+                    b.setTitle("儲存世界 Save level").setMessage("檔名 File name:").setView(name)
+                     .setPositiveButton("儲存 Save", new android.content.DialogInterface.OnClickListener() {
+                         public void onClick(android.content.DialogInterface di, int w) {
+                             String n = name.getText().toString().trim().replaceAll("[\\\\/:*?\"<>|]", "_");
+                             if (n.length() > 0) result[0] = new File(d, n).getPath();
+                         }
+                     });
+                } else if (files == null || files.length == 0) {
+                    b.setTitle("載入世界 Load level").setMessage("還沒有存檔。\nNo saved levels yet.");
+                } else {
+                    String[] names = new String[files.length];
+                    for (int i = 0; i < files.length; i++) names[i] = files[i].getName();
+                    b.setTitle("載入世界 Load level").setItems(names, new android.content.DialogInterface.OnClickListener() {
+                        public void onClick(android.content.DialogInterface di, int w) { result[0] = files[w].getPath(); }
+                    });
+                }
+                b.setNegativeButton("取消 Cancel", null);
+                android.app.AlertDialog dlg = b.create();
+                dlg.setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
+                    public void onDismiss(android.content.DialogInterface di) { hideSystemUi(); done.countDown(); }
+                });
+                dlg.show();
+            }
+        });
+        try { done.await(); } catch (InterruptedException e) { return null; }
+        return result[0];
     }
 
     // ---- hardware keys (back button, Bluetooth / USB keyboards) ----

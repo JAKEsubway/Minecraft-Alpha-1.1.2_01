@@ -1,15 +1,15 @@
 # mcport
 
-**Run Minecraft Alpha 1.1.2_01 natively on Android — no launcher, no JVM on the phone.**
+**Run Minecraft Alpha 1.1.2_01 and Indev 20100223 natively on Android — no launcher, no JVM on the phone.**
 
-mcport converts your own copy of the desktop game jar into an Android APK. The game's
+mcport converts your own copies of the desktop game jars into one Android APK (pick the version when the app starts). The game's
 bytecode is turned into Android dex, and its calls to LWJGL 2, AWT and ImageIO are
 redirected to a compatibility layer that draws with EGL + OpenGL ES 1.1. The game's own
 code is not changed.
 
 > **Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.**
 > This repository contains **no** Mojang code or assets. You need your own legally obtained
-> `a1.1.2_01.jar`; an APK built from it contains Mojang code and is for your personal use only —
+> `a1.1.2_01.jar` / Indev jar; an APK built from it contains Mojang code and is for your personal use only —
 > do not distribute it.
 
 ![Touch controls](docs/controls.png)
@@ -24,29 +24,31 @@ code is not changed.
 - Soft keyboard pops up for chat, signs and server addresses
 - Fixes two Alpha bugs that matter on phones: random "Comparison method violates its general
   contract!" crashes, and duplicated buttons after leaving the Controls screen
+- Version picker: put several versions in one APK; each runs in its own class loader with its own options and saves
+- Indev 20100223 works offline: level generation, sounds and Load/Save file (the minecraft.net checks it made are answered locally)
 - Desktop test harness: run the same layer on a PC (Xvfb + Mesa) with scripted input and screenshots
 
 **Quick start** (Ubuntu / WSL)
 
 ```sh
 sudo apt install openjdk-21-jdk android-sdk-platform-23 dalvik-exchange aapt zipalign apksigner libasm-java python3
-./build-apk.sh path/to/a1.1.2_01.jar minecraft-alpha.apk ~/.minecraft   # last argument (sounds) is optional
+./build-apk.sh a1.1.2_01.jar,in-20100223.jar minecraft.apk ~/.minecraft   # one jar is fine too; sounds are optional
 ```
 
 Licensed under the MIT License (mcport code only). Full documentation below is in Traditional Chinese.
 
 ---
 
-# mcport：Minecraft Alpha 原生 Android 移植轉接層
+# mcport：Minecraft Alpha / Indev 原生 Android 移植轉接層
 
-把桌面版 Minecraft Alpha 的 jar 直接打包成 Android APK。不需要啟動器，也不需要在手機上跑 JVM：
+把桌面版 Minecraft Alpha、Indev 的 jar 直接打包成 Android APK，可以把多個版本放進同一個 APK，開啟時選版本。不需要啟動器，也不需要在手機上跑 JVM：
 遊戲的位元碼會轉成 Android 的 dex，原本呼叫的 LWJGL 2、AWT、ImageIO 改接到本專案的轉接層，
 畫面由 EGL + OpenGL ES 1.1 繪製。
 
 > **本專案不含任何 Mojang 的程式碼或素材。** 你必須自己準備遊戲 jar；
 > 用它打包出來的 APK 含有 Mojang 的程式碼，只能自己使用，不能散布。
 
-目前測試過的版本：**Alpha 1.1.2_01**（`a1.1.2_01.jar`，客戶端）。
+目前測試過的版本：**Alpha 1.1.2_01**（`a1.1.2_01.jar`，客戶端）、**Indev 20100223**（`in-20100223.jar`）。
 
 ---
 
@@ -71,14 +73,20 @@ sudo apt install liblwjgl-java xvfb libgl1-mesa-dri
 
 用你自己的正版帳號，從官方啟動器下載 Alpha 1.1.2_01，再到
 `.minecraft/versions/a1.1.2_01/a1.1.2_01.jar` 複製出來。
+Indev 同理（官方啟動器勾選「顯示舊版本」後可下載 `in-20100223`）。
+檔名裡的日期（20100223）會被拿來當版本名稱，請保留。
 
 ## 三、打包 APK
 
 ```sh
 unzip mcport-source-kit.zip -d mcport
 cd mcport
-./build-apk.sh ~/a1.1.2_01.jar minecraft-alpha.apk ~/.minecraft
+./build-apk.sh $HOME/a1.1.2_01.jar,$HOME/in-20100223.jar minecraft.apk ~/.minecraft
 ```
+
+第一個參數可以是一個 jar，也可以是用逗號隔開的多個 jar（逗號前後不要有空格；逗號後面不能用 `~`，請用 `$HOME`）。
+放了多個版本時，App 開啟會先顯示「選擇版本」畫面，上次玩的版本會標「（上次）」；
+要換版本就把 App 關掉（從最近使用的 App 滑掉）再開。
 
 第三個參數（音效資料夾）可以省略，省略的話遊戲沒有聲音，詳見下方「音效」。
 
@@ -90,8 +98,8 @@ cd mcport
 | 2 | 以 Android API 23 為基準編譯轉接層 |
 | 3 | `tools/Check.java` 檢查遊戲用到的每個類別、方法、欄位在轉接層裡都存在（應顯示 `OK`） |
 | 4 | 編譯 Android 端程式（Activity、觸控、EGL） |
-| 5 | `dx` 轉成 `classes.dex` |
-| 6 | `aapt` 打包；遊戲的圖片等資源放在 APK 根目錄；有給音效資料夾的話，音效放進 `assets/mcres/` |
+| 5 | `dx` 轉成 dex：轉接層與 Android 程式一份，每個遊戲版本各一份（版本之間類別名稱會重複，所以各用自己的 class loader 載入） |
+| 6 | `aapt` 打包；每個版本的 dex 和圖片打成 `assets/games/<版本>.jar`；有給音效資料夾的話，音效放進 `assets/mcres/`（所有版本共用） |
 | 7 | `zipalign` 對齊，再用自動產生的 `build/debug.keystore` 簽名 |
 
 第一次打包會自動產生簽名金鑰並存在 `build/debug.keystore`。
@@ -102,7 +110,7 @@ cd mcport
 把 APK 傳到手機上開啟，允許「安裝未知來源的應用程式」即可。也可以用 adb：
 
 ```sh
-adb install -r minecraft-alpha.apk
+adb install -r minecraft.apk
 ```
 
 需求：Android 5.0 以上，支援 OpenGL ES 1.1（幾乎所有手機都支援）。
@@ -122,12 +130,18 @@ App 第一次開啟時會把音效複製到遊戲資料夾，畫面會顯示 `In
 
 設定裡的 Music、Sound 滑桿可以調音量；App 切到背景時聲音會自動暫停。
 
+Indev 也用同一份音效（Indev 的音效名稱和 Alpha 相同）。Indev 會一直播背景音樂，沒有音樂檔時
+會自動放一段 30 秒的靜音代替，不然遊戲每一刻都會出錯。
+
 **背景音樂：**放在 `music/`（例如 `calm1.ogg`、`calm2.ogg`、`calm3.ogg`）。原版要隨機等 0～10 分鐘才播第一首，
 手機上常常還沒聽到就關掉了，所以每次開遊戲的第一首改成 30～90 秒內開始，之後照原版的間隔。
 
 ### 存檔位置
 
-`Android/data/io.github.mcport.alpha/files/.minecraft/saves/`
+- Alpha：`Android/data/io.github.mcport.alpha/files/.minecraft/saves/`（和舊版 APK 相同，更新後存檔還在）
+- Indev：`Android/data/io.github.mcport.alpha/files/versions/indev-20100223/.minecraft/saves/*.mclevel`
+
+每個版本的設定和存檔分開放，互不影響。
 
 移除 App 會一併刪除存檔，移除前請先備份。
 
@@ -139,6 +153,9 @@ App 第一次開啟時會把音效複製到遊戲資料夾，畫面會顯示 `In
 ./run-desktop-test.sh ~/a1.1.2_01.jar
 # 截圖會存在 shots/
 ```
+
+一次測一個版本（Indev 也一樣，換成 Indev 的 jar）。加上 `MCDESK_SEPARATE=1` 會像手機一樣用獨立的 class loader 載入遊戲；
+`MCDESK_HOME=資料夾` 可以指定遊戲資料夾（建議 Alpha 和 Indev 分開）。
 
 也可以自訂操作腳本（用分號分隔）：
 
@@ -162,7 +179,9 @@ App 第一次開啟時會把音效複製到遊戲資料夾，畫面會顯示 `In
 | `tapgui X Y [long]` | 模擬手機在背包類畫面點一下（加 long 為長按） |
 | `move X Y` | 移動滑鼠游標 |
 | `music` | 立刻開始播背景音樂 |
-| `pig` / `turn 偏航 俯仰` / `findpig` / `tappig [right\|above 像素]` / `taplook [X Y]` / `pigstat` | 在前方放一隻豬／轉動視角／從畫面找出豬的位置／點豬（或豬旁邊）／模擬手機在某點點一下／印出豬的數值 |
+| `pig` / `turn 偏航 俯仰` / `findpig` / `taplook` / `pigstat` | 在前方放一隻豬／轉動視角／從畫面找出豬的位置／模擬手機在遊戲畫面點一下（看準心）／印出豬的數值（Alpha 專用） |
+| `aim` | 印出準心是否對著生物 |
+| `file 名稱` | 下一次 Indev 的 Load file / Save file 對話框回答這個檔名 |
 
 測試世界存在 `build/mchome/`。
 
@@ -197,8 +216,18 @@ App 第一次開啟時會把音效複製到遊戲資料夾，畫面會顯示 `In
   - 拿著東西時點在視窗邊緣附近不會把整疊丟到地上（要丟請點離視窗遠一點的地方）
   - 游標會跟著手指，看得到選中的格子和手上的物品
 - **一般選單：**按鈕按下即觸發，滑桿可以直接拖
-- **自動鍵盤：**聊天、編輯告示牌、輸入伺服器位址時，手機鍵盤自動跳出，離開後收起
+- **自動鍵盤：**聊天、編輯告示牌、輸入伺服器位址（Indev：輸入世界名稱）時，手機鍵盤自動跳出，離開後收起
 - 支援藍牙／USB 鍵盤
+
+### Indev 20100223
+
+觸控操作和 Alpha 一樣（I 鍵＝「⋯」開背包，沒有蹲下）。
+
+- **Generate new level…：**選類型、形狀、大小、主題後 Create
+- **存檔／讀檔：**暫停選單的 Save level.. / Load level..，再點 **Save file… / Load file…**：
+  存檔會跳出手機對話框輸入檔名，讀檔會列出存過的世界（最新的在上面）。
+  上面五個「-」格子是當年的線上存檔位，這個版本本來就沒有作用
+- Indev 原本要連到 minecraft.net 確認登入才肯進入剛產生的世界，這些檢查改成在本機直接回答，不用連網
 
 ## 六、專案結構
 
@@ -208,8 +237,8 @@ docs/                   GitHub Pages 介紹頁（index.html）與操作示意圖
 LICENSE                 MIT 授權（只涵蓋本專案程式碼）
 build-apk.sh            打包腳本
 run-desktop-test.sh     電腦端測試腳本
-tools/Remap.java        重新導向 jar 的引用（ASM ClassRemapper），在 Minecraft 建構子插入 Hooks.minecraft = this，
-                        並把遊戲的排序呼叫換成 SafeSort
+tools/Remap.java        重新導向 jar 的引用（ASM ClassRemapper），在遊戲主物件建構子插入 Hooks.minecraft = this，
+                        把排序呼叫換成 SafeSort，連網呼叫換成 Net；並找出版本名稱
 tools/Check.java        檢查轉接層是否涵蓋所有引用
 tools/collect_sounds.py 從 .minecraft 收集音效打包進 APK（支援 resources/ 和新版 assets/）
 shim/src/mcshim/        轉接層（Android 與電腦共用）
@@ -220,23 +249,29 @@ shim/src/mcshim/        轉接層（Android 與電腦共用）
   awt/、imageio/        BufferedImage、Graphics、ImageIO 等子集
   sound/                javax.sound 空殼
   Hooks.java            遊戲執行緒與 UI 之間的橋樑（每幀執行排隊的工作）
+  Launch.java           啟動任一版本：Alpha 用 Minecraft.main，Indev 用當年網頁上的 applet 方式
+  Net.java              代替已關閉的 minecraft.net 回答 Indev 的登入檢查、資源清單、線上存檔清單
+  swing/                Indev 啟動失敗時的訊息框 → 錯誤畫面
   craft/                測試用：讀配方、讀寫背包（電腦端測試指令 give / inv 等）
-  ui/GuiTouch.java      原版介面的觸控判斷（合成格放 1 個、對準格子、防誤丟）與 Alpha 按鈕重複錯誤的修正
+  ui/GuiTouch.java      原版介面的觸控判斷（合成格放 1 個、對準格子、防誤丟）與 Alpha 按鈕重複錯誤的修正；
+                        內含 Alpha 1.1.2_01 與 Indev 20100223 兩套混淆名稱
   audio/                軟體 OpenAL 混音器（位置、距離衰減、左右聲道、音高、音樂串流）
   lwjgl/openal/         遊戲音效庫呼叫的 OpenAL 函式，接到上面的混音器
   SafeSort.java         取代遊戲排序，避免 Alpha 的比較器在新版 Java／Android 上崩潰
-android/                Android 端：MainActivity、EGL、AudioTrack 聲音輸出、音效安裝（SoundInstaller）、觸控（TouchOverlay）、
+android/                Android 端：MainActivity（含選擇版本畫面、Indev 檔案對話框）、Games（各版本的載入與資料夾）、EGL、AudioTrack 聲音輸出、音效安裝（SoundInstaller）、觸控（TouchOverlay）、
                         自動鍵盤（TextInput）、鍵盤對應、Manifest、圖示
 desktop/                電腦端測試平台（真的 LWJGL 2）
 ```
 
 ## 七、已知限制
 
-- 挖掘／攻擊對準畫面中央準心，不是手指點的位置
-- 合成格放 1 個、防誤丟等觸控調整依賴 a1.1.2_01 的混淆名稱（`shim/src/mcshim/ui/GuiTouch.java`），找不到時會退回一般點擊
+- 挖掘／攻擊對準畫面中央準心，不是手指點的位置（同原版的分離控制）
+- 合成格放 1 個、防誤丟、自動鍵盤等觸控調整依賴混淆名稱（`shim/src/mcshim/ui/GuiTouch.java`，目前有 a1.1.2_01 和 in-20100223），
+  其他版本可以啟動，但這些功能會退回一般點擊
 - 多人遊戲沒有測試過
-- 目前只驗證過 Alpha 1.1.2_01；其他 Alpha 版本如果用到不同的 API，`Check` 步驟會列出缺少的部分
-- 自動鍵盤依賴 a1.1.2_01 的混淆名稱，換版本要更新 `GuiTouch.java`
+- 目前驗證過 Alpha 1.1.2_01 和 Indev 20100223；其他版本如果用到不同的 API，`Check` 步驟會列出缺少的部分
+- 換版本要關掉 App 重開（每個版本各自載入，同一次執行只能跑一個）
+- 截圖（F2）不會存檔
 - 鍵盤只能打遊戲字型支援的英數字與符號，中文會被遊戲忽略
 
 ## 八、常見問題

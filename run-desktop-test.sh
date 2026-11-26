@@ -23,8 +23,16 @@ if [ -z "$DISPLAY" ]; then
   sleep 2
 fi
 export LIBGL_ALWAYS_SOFTWARE=1
-mkdir -p $B/mchome
+HOME_DIR=${MCDESK_HOME:-$PWD/$B/mchome}
+mkdir -p "$HOME_DIR"
+if [ -n "$MCDESK_SEPARATE" ]; then
+  # load the game through its own class loader, as the Android app does
+  export MCDESK_GAME_PATH="$PWD/$B/game-remapped.jar:$PWD/$B/game-res.zip"
+  CP=$B/desk-classes:$B/shim-classes:/usr/share/java/lwjgl.jar
+else
+  CP=$B/desk-classes:$B/shim-classes:$B/game-remapped.jar:$B/game-res.zip:/usr/share/java/lwjgl.jar
+fi
 java -Xmx1g -Djava.library.path=/usr/lib/jni $MCDESK_JAVA_OPTS \
-  -cp $B/desk-classes:$B/shim-classes:$B/game-remapped.jar:$B/game-res.zip:/usr/share/java/lwjgl.jar \
-  mcdesk.TestMain "$PWD/$B/mchome" "$SCRIPT" || true
+  -cp $CP \
+  mcdesk.TestMain "$HOME_DIR" "$SCRIPT" || true
 [ -n "$XVFB" ] && kill $XVFB 2>/dev/null || true

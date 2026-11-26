@@ -18,6 +18,8 @@ public class Check {
 
     static boolean hasMember(String owner, String name, String desc, boolean method, Set<String> seen) {
         if (owner == null || !seen.add(owner)) return false;
+        if (owner.equals("java/lang/Object")) // the usual super class: knows only its own few members
+            return method && Arrays.asList("equals", "hashCode", "toString", "getClass", "notify", "notifyAll", "wait", "clone", "finalize").contains(name);
         if (owner.startsWith("java/") || owner.startsWith("javax/")) return true; // assume platform provides
         ClassNode c = find(owner);
         if (c == null) return false;

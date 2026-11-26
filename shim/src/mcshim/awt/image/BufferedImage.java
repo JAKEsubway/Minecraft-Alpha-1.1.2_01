@@ -5,7 +5,7 @@ import mcshim.awt.Graphics2D;
 import mcshim.awt.Image;
 
 /** int[] ARGB image. TYPE_INT_RGB images report opaque alpha when read. */
-public class BufferedImage extends Image {
+public class BufferedImage extends Image implements RenderedImage {
     public static final int TYPE_CUSTOM = 0, TYPE_INT_RGB = 1, TYPE_INT_ARGB = 2, TYPE_INT_ARGB_PRE = 3, TYPE_INT_BGR = 4;
     private final int w, h, type;
     private final int[] px;

@@ -9,72 +9,132 @@ import mcshim.Hooks;
 
 /**
  * Touch helpers for the game's own (original) screens. Game thread only.
- * Names are for Minecraft Alpha 1.1.2_01; if any is missing every helper
- * falls back to plain left clicks.
+ * Knows the obfuscated names of Minecraft Alpha 1.1.2_01 and Indev 20100223;
+ * for any other version every helper falls back to plain clicks.
  */
 public final class GuiTouch {
     private GuiTouch() {}
 
     public static final int NONE = 0, OTHER = 1, TEXT = 2, CONTAINER = 3;
 
+    /** Obfuscated names for one game version. */
+    private static final class Names {
+        String mc, screen, world, aim, aimClass, aimEntity, player;
+        String guiScreen, guiW, guiH, guiList, button, buttonId;
+        String container, xSize, ySize, slots, slotAt; // slotAt null: find the slot by its box
+        String slot, slotInv, slotX, slotY, slotXYClass; // where slotX/slotY live
+        String cursorOwner, cursorField;                 // "inventory": player.inventory.cursor, "screen": container field
+        String playerInv;
+        String craftGrid, options;
+        String[] textScreens;
+    }
+
+    private static final Names ALPHA = new Names(), INDEV = new Names();
+    static {
+        Names n = ALPHA;
+        n.mc = "net.minecraft.client.Minecraft"; n.screen = "p"; n.world = "e"; n.aim = "x"; n.aimClass = "mf"; n.aimEntity = "g"; n.player = "g";
+        n.guiScreen = "bh"; n.guiW = "c"; n.guiH = "d"; n.guiList = "e"; n.button = "fk"; n.buttonId = "f";
+        n.container = "ee"; n.xSize = "a"; n.ySize = "h"; n.slots = "i"; n.slotAt = "a";
+        n.slot = "dk"; n.slotInv = "b"; n.slotXYClass = "mm"; n.slotX = "e"; n.slotY = "f";
+        n.cursorOwner = "inventory"; n.playerInv = "b"; n.cursorField = "e";
+        n.craftGrid = "gu"; n.options = "ay";
+        n.textScreens = new String[] {"de", "nv", "gc"}; // chat, sign, server address
+        n = INDEV;
+        n.mc = "net.minecraft.client.d"; n.screen = "o"; n.world = "d"; n.aim = "v"; n.aimClass = "net.minecraft.a.d.c"; n.aimEntity = "g"; n.player = "f";
+        n.guiScreen = "net.minecraft.client.c.i"; n.guiW = "c"; n.guiH = "d"; n.guiList = "e"; n.button = "net.minecraft.client.c.r"; n.buttonId = "b";
+        n.container = "net.minecraft.client.c.a.j"; n.xSize = "a"; n.ySize = "i"; n.slots = "j"; n.slotAt = null;
+        n.slot = "net.minecraft.client.c.a.g"; n.slotInv = "d"; n.slotXYClass = "net.minecraft.client.c.a.g"; n.slotX = "b"; n.slotY = "c";
+        n.cursorOwner = "screen"; n.cursorField = "l";
+        n.craftGrid = "net.minecraft.client.c.a.a"; n.options = null;
+        n.textScreens = new String[] {"net.minecraft.client.c.p"}; // level name
+    }
+
     private static boolean tried, ok;
-    private static Field fWorld, fAim, fAimEntity;
-    private static Class<?> cDeath, cControls;
-    private static Field fScreen, fPlayer, fInventory, fCursor, fList, fW, fH, fXSize, fYSize, fSlots;
-    private static Field sInv, sX, sY, bId;
-    private static Class<?> cContainer, cCraftGrid, cChat, cSign, cConnect, cOptions;
+    private static Names v;
+    private static Field fScreen, fWorld, fAim, fAimEntity, fPlayer, fInventory, fCursor;
+    private static Field fList, fW, fH, fXSize, fYSize, fSlots, sInv, sX, sY, bId;
+    private static Class<?> cContainer, cCraftGrid, cOptions;
+    private static Class<?>[] cText;
     private static Method mSlotAt;
 
+    /** Field n of c or of the nearest super class that declares it. */
     private static Field f(Class<?> c, String n) throws Exception {
-        Field x = c.getDeclaredField(n);
-        x.setAccessible(true);
-        return x;
+        for (Class<?> k = c; k != null; k = k.getSuperclass()) {
+            try {
+                Field x = k.getDeclaredField(n);
+                x.setAccessible(true);
+                return x;
+            } catch (NoSuchFieldException next) {}
+        }
+        throw new NoSuchFieldException(c.getName() + "." + n);
     }
 
     private static synchronized boolean init() {
         if (tried) return ok;
+        Object game = Hooks.minecraft;
+        if (game == null) return false;      // try again once the game object exists
         tried = true;
         try {
-            ClassLoader cl = GuiTouch.class.getClassLoader();
-            Class<?> mc = Class.forName("net.minecraft.client.Minecraft", false, cl);
-            Class<?> screen = Class.forName("bh", false, cl);
-            Class<?> button = Class.forName("fk", false, cl);
-            Class<?> player = Class.forName("dm", false, cl);
-            Class<?> inv = Class.forName("eu", false, cl);
-            Class<?> slot = Class.forName("dk", false, cl);
-            Class<?> guiSlot = Class.forName("mm", false, cl);
-            cContainer = Class.forName("ee", false, cl);
-            cCraftGrid = Class.forName("gu", false, cl);
-            cChat = Class.forName("de", false, cl);
-            cSign = Class.forName("nv", false, cl);
-            cConnect = Class.forName("gc", false, cl);
-            cOptions = Class.forName("ay", false, cl);
-            fScreen = f(mc, "p");
-            fWorld = f(mc, "e");
-            fAim = f(mc, "x");                                   // objectMouseOver
-            fAimEntity = f(Class.forName("mf", false, cl), "g");  // ...its entityHit
-            cDeath = Class.forName("au", false, cl);
-            cControls = Class.forName("lw", false, cl);
-            fPlayer = f(mc, "g");
-            fInventory = f(player, "b");
-            fCursor = f(inv, "e");
-            fList = f(screen, "e");
-            fW = f(screen, "c");
-            fH = f(screen, "d");
-            fXSize = f(cContainer, "a");
-            fYSize = f(cContainer, "h");
-            fSlots = f(cContainer, "i");
-            sInv = f(slot, "b");
-            sX = f(guiSlot, "e");
-            sY = f(guiSlot, "f");
-            bId = f(button, "f");
-            mSlotAt = cContainer.getDeclaredMethod("a", int.class, int.class);
-            mSlotAt.setAccessible(true);
+            ClassLoader cl = game.getClass().getClassLoader();
+            Class<?> mc = game.getClass();   // Alpha's is an anonymous subclass of Minecraft
+            while (mc != null && !mc.getName().equals(ALPHA.mc) && !mc.getName().equals(INDEV.mc)) mc = mc.getSuperclass();
+            if (mc == null) return ok = false;
+            v = mc.getName().equals(ALPHA.mc) ? ALPHA : INDEV;
+            Class<?> screen = Class.forName(v.guiScreen, false, cl);
+            cContainer = Class.forName(v.container, false, cl);
+            cCraftGrid = Class.forName(v.craftGrid, false, cl);
+            cOptions = v.options == null ? null : Class.forName(v.options, false, cl);
+            cText = new Class<?>[v.textScreens.length];
+            for (int i = 0; i < cText.length; i++) cText[i] = Class.forName(v.textScreens[i], false, cl);
+            fScreen = f(mc, v.screen);
+            fWorld = f(mc, v.world);
+            fAim = f(mc, v.aim);                                            // what the crosshair is on
+            fAimEntity = f(Class.forName(v.aimClass, false, cl), v.aimEntity); // ...the creature, if any
+            fPlayer = f(mc, v.player);
+            if (v.cursorOwner.equals("inventory")) {
+                fInventory = f(fPlayer.getType(), v.playerInv);
+                fCursor = f(fInventory.getType(), v.cursorField);
+            } else {
+                fCursor = f(cContainer, v.cursorField);
+            }
+            fList = f(screen, v.guiList);
+            fW = f(screen, v.guiW);
+            fH = f(screen, v.guiH);
+            fXSize = f(cContainer, v.xSize);
+            fYSize = f(cContainer, v.ySize);
+            fSlots = f(cContainer, v.slots);
+            Class<?> slot = Class.forName(v.slot, false, cl), slotXY = Class.forName(v.slotXYClass, false, cl);
+            sInv = f(slot, v.slotInv);
+            sX = f(slotXY, v.slotX);
+            sY = f(slotXY, v.slotY);
+            bId = f(Class.forName(v.button, false, cl), v.buttonId);
+            if (v.slotAt != null) {
+                mSlotAt = cContainer.getDeclaredMethod(v.slotAt, int.class, int.class);
+                mSlotAt.setAccessible(true);
+            }
             ok = true;
         } catch (Throwable t) {
+            mcshim.Platform.get().log("touch helpers unavailable: " + t);
             ok = false;
         }
         return ok;
+    }
+
+    /** The item held on the pointer in a container screen, or null. */
+    private static Object cursorItem(Object screen) throws Exception {
+        if (fInventory != null) return fCursor.get(fInventory.get(fPlayer.get(Hooks.minecraft)));
+        return fCursor.get(screen);
+    }
+
+    /** The slot under GUI point (gx, gy): the game's own method, or the same box test. */
+    private static Object slotAt(Object s, int gx, int gy) throws Exception {
+        if (mSlotAt != null) return mSlotAt.invoke(s, gx, gy);
+        int left = (fW.getInt(s) - fXSize.getInt(s)) / 2, top = (fH.getInt(s) - fYSize.getInt(s)) / 2;
+        for (Object o : (List<?>) fSlots.get(s)) {
+            int x = gx - left, y = gy - top, sx = sX.getInt(o), sy = sY.getInt(o);
+            if (x >= sx - 1 && x < sx + 16 + 1 && y >= sy - 1 && y < sy + 16 + 1) return o;
+        }
+        return null;
     }
 
     private static Object screen() throws Exception {
@@ -89,7 +149,7 @@ public final class GuiTouch {
             Object s = screen();
             if (s == null) return NONE;
             if (cContainer.isInstance(s)) return CONTAINER;
-            if (cChat.isInstance(s) || cSign.isInstance(s) || cConnect.isInstance(s)) return TEXT;
+            for (Class<?> c : cText) if (c.isInstance(s)) return TEXT;
             return OTHER;
         } catch (Exception e) {
             return NONE;
@@ -110,7 +170,7 @@ public final class GuiTouch {
             if (s == null || fWorld.get(mc) == null) return null;
             // only screens with no way back of their own: inventory-type screens and chat
             // (options, controls and the sign editor already have a "Done" button)
-            boolean wanted = cContainer.isInstance(s) || cChat.isInstance(s);
+            boolean wanted = cContainer.isInstance(s) || (v == ALPHA && cText[0].isInstance(s));
             if (!wanted) return null;
             int gw = fW.getInt(s), gh = fH.getInt(s);
             if (gw <= 0 || gh <= 0) return null;
@@ -140,11 +200,12 @@ public final class GuiTouch {
      * later tracks keep the game's own timing. Game thread, call every frame.
      */
     public static void nudgeFirstMusic() {
-        if (musicNudged || !init()) return;
+        if (musicNudged || !init() || v != ALPHA) return;
         try {
             Object mc = Hooks.minecraft;
             if (mc == null || fWorld.get(mc) == null) return;
-            Class<?> mcC = Class.forName("net.minecraft.client.Minecraft", false, GuiTouch.class.getClassLoader());
+            Class<?> mcC = mc.getClass();
+            while (!mcC.getName().equals(ALPHA.mc)) mcC = mcC.getSuperclass();
             Object snd = f(mcC, "A").get(mc);
             if (snd == null) return;
             Field ticks = f(snd.getClass(), "i");
@@ -155,114 +216,6 @@ public final class GuiTouch {
         } catch (Throwable e) {
             musicNudged = true;
         }
-    }
-
-    // ---- PE-style attack (creature under the finger) ----
-    private static boolean aTried, aOk;
-    private static Field fEntities, eX, eY, eZ, eYaw, ePitch, eW, eH, eYOff, eHealth;
-    private static Class<?> cLiving;
-    private static Method mVec, mRay, mSwing, mAttack;
-
-    private static synchronized boolean initAssist() {
-        if (aTried) return aOk;
-        aTried = true;
-        try {
-            ClassLoader cl = GuiTouch.class.getClassLoader();
-            Class<?> world = Class.forName("cn", false, cl), ent = Class.forName("kh", false, cl);
-            Class<?> vec = Class.forName("aj", false, cl), aim = Class.forName("mf", false, cl);
-            cLiving = Class.forName("ge", false, cl);
-            fEntities = f(world, "a");          // loaded entities
-            eX = f(ent, "ak"); eY = f(ent, "al"); eZ = f(ent, "am");
-            eYaw = f(ent, "aq"); ePitch = f(ent, "ar");
-            eW = f(ent, "aC"); eH = f(ent, "aD"); eYOff = f(ent, "aB");
-            eHealth = f(cLiving, "E");
-            Class<?> player = Class.forName("bi", false, cl); // the local player
-            mSwing = player.getMethod("w");          // swing the arm
-            mAttack = player.getMethod("a", ent);    // attack with the held item, as a click on the creature does
-            mVec = vec.getDeclaredMethod("b", double.class, double.class, double.class);
-            mRay = world.getDeclaredMethod("a", vec, vec);
-            aOk = init();
-        } catch (Throwable t) {
-            aOk = false;
-        }
-        return aOk;
-    }
-
-    /** How far a creature can be hit from (the game's own reach). */
-    private static final double REACH = 4.0;
-    /** Bodies count 0.1 block bigger, like the game's own picking (collision border). */
-    private static final double BORDER = 0.1;
-    /** Alpha's fixed vertical field of view. */
-    private static final double FOV = 70.0;
-
-    /**
-     * Pocket Edition style attack: the creature under the finger is the one hit.
-     * Casts a ray from the eye through screen pixel (sx, sy) (from the top-left),
-     * finds the nearest living creature whose body (grown by BORDER) it passes
-     * through within REACH, with no block in front, and attacks it exactly as the
-     * game's own click does. Returns false if the finger is not on a creature.
-     * Game thread only.
-     */
-    public static boolean attackAtScreen(int sx, int sy, int dispW, int dispH) {
-        if (!initAssist() || dispW <= 0 || dispH <= 0) return false;
-        try {
-            Object mc = Hooks.minecraft;
-            Object player = fPlayer.get(mc), world = fWorld.get(mc);
-            if (player == null || world == null) return false;
-            double px = eX.getDouble(player), py = eY.getDouble(player) + 0.12, pz = eZ.getDouble(player);
-            double yaw = Math.toRadians(eYaw.getFloat(player)), pitch = Math.toRadians(ePitch.getFloat(player));
-            // camera basis
-            double fx = -Math.sin(yaw) * Math.cos(pitch), fy = -Math.sin(pitch), fz = Math.cos(yaw) * Math.cos(pitch);
-            double rx = -Math.cos(yaw), ry = 0, rz = -Math.sin(yaw);
-            double ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
-            // pixel -> direction
-            double t = Math.tan(Math.toRadians(FOV / 2)), aspect = (double) dispW / dispH;
-            double nx = (2.0 * (sx + 0.5) / dispW - 1) * t * aspect, ny = (1 - 2.0 * (sy + 0.5) / dispH) * t;
-            double dx = fx + rx * nx + ux * ny, dy = fy + ry * nx + uy * ny, dz = fz + rz * nx + uz * ny;
-            double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            dx /= len; dy /= len; dz /= len;
-
-            Object best = null;
-            double bestT = Double.MAX_VALUE;
-            for (Object e : ((List<?>) fEntities.get(world)).toArray()) {
-                if (e == player || !cLiving.isInstance(e) || eHealth.getInt(e) <= 0) continue;
-                double hw = eW.getFloat(e) / 2.0 + BORDER, h = eH.getFloat(e);
-                double ex = eX.getDouble(e), ez = eZ.getDouble(e), ey = eY.getDouble(e) - eYOff.getFloat(e);
-                double hit = rayBox(px, py, pz, dx, dy, dz, ex - hw, ey - BORDER, ez - hw, ex + hw, ey + h + BORDER, ez + hw);
-                if (hit < 0 || hit > REACH || hit >= bestT) continue;
-                // nothing solid between the eyes and the point where the finger's ray meets the body
-                Object from = mVec.invoke(null, px, py, pz);
-                Object to = mVec.invoke(null, px + dx * hit, py + dy * hit, pz + dz * hit);
-                if (mRay.invoke(world, from, to) != null) continue;
-                bestT = hit;
-                best = e;
-            }
-            if (best == null) return false;
-            mSwing.invoke(player);
-            mAttack.invoke(player, best);
-            return true;
-        } catch (Throwable e) {
-            return false;
-        }
-    }
-
-    /** Distance along the ray to the box, or -1 if it misses (slab method). */
-    private static double rayBox(double ox, double oy, double oz, double dx, double dy, double dz,
-                                 double x0, double y0, double z0, double x1, double y1, double z1) {
-        double tmin = 0, tmax = Double.MAX_VALUE;
-        double[] o = {ox, oy, oz}, d = {dx, dy, dz}, lo = {x0, y0, z0}, hi = {x1, y1, z1};
-        for (int i = 0; i < 3; i++) {
-            if (Math.abs(d[i]) < 1e-9) {
-                if (o[i] < lo[i] || o[i] > hi[i]) return -1;
-            } else {
-                double a = (lo[i] - o[i]) / d[i], b = (hi[i] - o[i]) / d[i];
-                if (a > b) { double tt = a; a = b; b = tt; }
-                tmin = Math.max(tmin, a);
-                tmax = Math.min(tmax, b);
-                if (tmin > tmax) return -1;
-            }
-        }
-        return tmin;
     }
 
     /** True when the crosshair is on a mob/animal/player (game thread). */
@@ -285,7 +238,7 @@ public final class GuiTouch {
         if (!init()) return;
         try {
             Object s = screen();
-            if (s == null || !cOptions.isInstance(s)) return;
+            if (s == null || cOptions == null || !cOptions.isInstance(s)) return;
             List<?> list = (List<?>) fList.get(s);
             HashSet<Integer> seen = new HashSet<Integer>();
             for (int i = list.size() - 1; i >= 0; i--) {
@@ -313,7 +266,7 @@ public final class GuiTouch {
             // exactly how the game maps the mouse: y comes from the bottom, minus one
             int gx = px * gw / dispW;
             int gy = gh - (dispH - 1 - py) * gh / dispH - 1;
-            Object slot = mSlotAt.invoke(s, gx, gy);
+            Object slot = slotAt(s, gx, gy);
             if (slot == null) {
                 // snap to a slot within 4 GUI pixels of its 16x16 box
                 int left = (gw - fXSize.getInt(s)) / 2, top = (gh - fYSize.getInt(s)) / 2;
@@ -333,7 +286,7 @@ public final class GuiTouch {
                     py = dispH - 1 - (int) ((gh - 1 - gy + 0.5f) / ky);
                 }
             }
-            Object cursor = fCursor.get(fInventory.get(fPlayer.get(Hooks.minecraft)));
+            Object cursor = cursorItem(s);
             if (slot == null) {
                 if (cursor != null) {
                     int left = (gw - fXSize.getInt(s)) / 2, top = (gh - fYSize.getInt(s)) / 2;

@@ -1,13 +1,20 @@
 #!/bin/sh
-# Build an Android APK from a desktop Minecraft Alpha client jar.
-#   ./build-apk.sh path/to/a1.1.2_01.jar [out.apk] [sound folder]
-# The optional sound folder is your .minecraft (or its resources/ or assets/):
-# the sounds get packed into the APK and installed on first launch.
+# Build an Android APK from one or more desktop Minecraft client jars.
+#   ./build-apk.sh game.jar[,other.jar...] [out.apk] [sound folder]
+# e.g. ./build-apk.sh a1.1.2_01.jar,in-20100223.jar minecraft.apk ~/.minecraft
+# With more than one jar the app asks which version to play when it starts.
+# Supported: Alpha 1.1.2_01 and Indev 20100223 (others may start but without
+# the touch helpers). The optional sound folder is your .minecraft (or its
+# resources/ or assets/): the sounds get packed into the APK and installed on
+# first launch, shared by all versions.
 # Needs (Debian/Ubuntu): openjdk, android-sdk-platform-23, dalvik-exchange, aapt,
 # zipalign, apksigner, libasm-java
 set -e
-GAME_JAR=$(readlink -f "$1")
-OUT=${2:-minecraft-alpha.apk}
+JARS=""
+OLDIFS=$IFS; IFS=,
+for j in $1; do JARS="$JARS $(readlink -f "$j")"; done
+IFS=$OLDIFS
+OUT=${2:-minecraft.apk}
 case "$OUT" in /*) ;; *) OUT="$PWD/$OUT";; esac
 SOUNDS=${3:-}
 [ -n "$SOUNDS" ] && SOUNDS=$(readlink -f "$SOUNDS")
@@ -18,17 +25,23 @@ B=build
 DX=$(command -v dx || echo /usr/lib/android-sdk/build-tools/debian/dx)
 mkdir -p $B
 
-echo "[1/7] remapping game jar"
+echo "[1/7] remapping game jars"
 mkdir -p $B/tools
 javac -nowarn -cp $ASM -d $B/tools tools/Remap.java tools/Check.java
-java -cp $ASM:$B/tools Remap "$GAME_JAR" $B/game-remapped.jar $B/game-res.zip
+rm -rf $B/games && mkdir -p $B/games
+n=0
+for j in $JARS; do
+  mkdir -p $B/games/$n
+  java -cp $ASM:$B/tools Remap "$j" $B/games/$n/remapped.jar $B/games/$n/res.zip $B/games/$n/label.txt
+  n=$((n+1))
+done
 
 echo "[2/7] compiling shim"
 rm -rf $B/shim-classes && mkdir -p $B/shim-classes
 javac -nowarn -source 8 -target 8 -bootclasspath $ANDROID_JAR -d $B/shim-classes $(find shim/src -name '*.java') 2>$B/javac.log || { cat $B/javac.log; exit 1; }
 
 echo "[3/7] checking references"
-java -cp $ASM:$B/tools Check $B/game-remapped.jar $B/shim-classes | tail -1
+for g in $B/games/*/; do java -cp $ASM:$B/tools Check $g/remapped.jar $B/shim-classes | tail -1; done
 
 echo "[4/7] compiling Android code"
 rm -rf $B/android-classes && mkdir -p $B/android-classes
@@ -36,25 +49,41 @@ javac -nowarn -source 8 -target 8 -bootclasspath $ANDROID_JAR -cp $B/shim-classe
 
 echo "[5/7] dexing"
 rm -rf $B/dex && mkdir -p $B/dex
-$DX --dex --min-sdk-version=21 --output=$B/dex/classes.dex $B/shim-classes $B/android-classes $B/game-remapped.jar
+$DX --dex --min-sdk-version=21 --output=$B/dex/classes.dex $B/shim-classes $B/android-classes
+# each version gets its own dex + resources, loaded by its own class loader
+# (versions share class names, so they cannot live in one dex)
+for g in $B/games/*/; do $DX --dex --min-sdk-version=21 --output=$g/classes.dex $g/remapped.jar; done
 
 echo "[6/7] packaging"
-rm -rf $B/apk-assets && mkdir -p $B/apk-assets
+rm -rf $B/apk-assets && mkdir -p $B/apk-assets/games
+python3 - $B/games $B/apk-assets/games <<'PY'
+import sys, os, re, zipfile
+src, dst = sys.argv[1:3]
+index = []
+for n in sorted(os.listdir(src), key=int):
+    g = os.path.join(src, n)
+    label = open(os.path.join(g, 'label.txt'), encoding='utf-8').read().strip()
+    gid = re.sub(r'[^a-z0-9._-]+', '-', label.lower()).strip('-')
+    with zipfile.ZipFile(os.path.join(dst, gid + '.jar'), 'w', zipfile.ZIP_DEFLATED) as z:
+        z.write(os.path.join(g, 'classes.dex'), 'classes.dex')
+        with zipfile.ZipFile(os.path.join(g, 'res.zip')) as r:
+            for e in r.namelist():
+                z.writestr(e, r.read(e))   # game resources, found through the version's class loader
+    index.append(gid + '\t' + label)
+    print('      version: %s (%s.jar)' % (label, gid))
+open(os.path.join(dst, 'index.txt'), 'w', encoding='utf-8').write('\n'.join(index) + '\n')
+PY
 if [ -n "$SOUNDS" ]; then
   python3 tools/collect_sounds.py "$SOUNDS" $B/apk-assets
 else
   echo "      (no sound folder given: the APK will be silent unless you copy sounds to the phone yourself)"
 fi
-aapt package -f -0 ogg -0 mus -M android/AndroidManifest.xml -S android/res -A $B/apk-assets -I $ANDROID_JAR -F $B/unsigned.apk
-python3 - "$B/unsigned.apk" "$B/dex/classes.dex" "$B/game-res.zip" <<'PY'
+aapt package -f -0 ogg -0 mus -0 jar -M android/AndroidManifest.xml -S android/res -A $B/apk-assets -I $ANDROID_JAR -F $B/unsigned.apk
+python3 - "$B/unsigned.apk" "$B/dex/classes.dex" <<'PY'
 import sys, zipfile
-apk, dex, res = sys.argv[1:4]
+apk, dex = sys.argv[1:3]
 with zipfile.ZipFile(apk, 'a') as z:
     z.write(dex, 'classes.dex', compress_type=zipfile.ZIP_DEFLATED)
-    with zipfile.ZipFile(res) as r:
-        for n in r.namelist():
-            # game resources go at the APK root, where getResourceAsStream finds them
-            z.writestr(n, r.read(n), compress_type=zipfile.ZIP_DEFLATED)
 PY
 
 echo "[7/7] aligning and signing"

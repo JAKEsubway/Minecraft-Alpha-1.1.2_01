@@ -87,12 +87,12 @@
     </div>
   </div>
   <h1>
-    <span data-en>Minecraft Alpha on Android. Natively.</span>
-    <span data-zh>在 Android 上原生執行 Minecraft Alpha</span>
+    <span data-en>Minecraft Alpha &amp; Indev on Android. Natively.</span>
+    <span data-zh>在 Android 上原生執行 Minecraft Alpha 與 Indev</span>
   </h1>
   <p class="lead">
-    <span data-en>mcport turns your own copy of the Alpha 1.1.2_01 desktop jar into an Android APK — no launcher, no Java VM on the phone. Pocket Edition style touch controls, sound, the game's original screens tuned for fingers.</span>
-    <span data-zh>mcport 把你自己的 Alpha 1.1.2_01 電腦版 jar 打包成 Android APK，不需要啟動器，手機上也不用跑 Java 虛擬機。觸控仿 Pocket Edition，介面保留原版並針對手指操作優化。</span>
+    <span data-en>mcport turns your own copies of the Alpha 1.1.2_01 and Indev 20100223 desktop jars into one Android APK — pick the version when it starts — no launcher, no Java VM on the phone. Pocket Edition style touch controls, sound, the game's original screens tuned for fingers.</span>
+    <span data-zh>mcport 把你自己的 Alpha 1.1.2_01、Indev 20100223 電腦版 jar 打包成同一個 Android APK，開啟時選版本，不需要啟動器，手機上也不用跑 Java 虛擬機。觸控仿 Pocket Edition，介面保留原版並針對手指操作優化。</span>
   </p>
   <div class="cta">
     <a class="btn primary" id="repo" href="#">
@@ -150,6 +150,10 @@
       <p><span data-en>No more random "Comparison method violates its general contract!" crashes, and no doubled buttons after the Controls screen.</span><span data-zh>不再隨機出現「Comparison method violates its general contract!」當機，Controls 回來後按鈕也不再重複。</span></p>
     </div>
     <div class="card">
+      <h3><span data-en>Version picker</span><span data-zh>版本切換</span></h3>
+      <p><span data-en>Put Alpha and Indev in one APK and choose at start. Each version has its own options and saves; Indev's old minecraft.net checks are answered offline, and Load/Save file use phone dialogs.</span><span data-zh>Alpha 和 Indev 放進同一個 APK，開啟時選擇。各版本的設定和存檔分開；Indev 當年要連 minecraft.net 的檢查改成離線回答，讀檔／存檔改用手機對話框。</span></p>
+    </div>
+    <div class="card">
       <h3><span data-en>Testable on a PC</span><span data-zh>電腦上就能測</span></h3>
       <p><span data-en>The same layer runs on desktop OpenGL with scripted input and screenshots, so changes can be checked without a phone.</span><span data-zh>同一套轉接層可以接電腦的 OpenGL，用腳本操作並截圖，不用手機也能驗證。</span></p>
     </div>
@@ -189,7 +193,7 @@ sudo apt install openjdk-21-jdk android-sdk-platform-23 dalvik-exchange \
       <span data-zh>下載本專案並打包：</span>
 <pre>git clone <span class="clone-url">https://github.com/OWNER/mcport.git</span>
 cd mcport
-./build-apk.sh ~/a1.1.2_01.jar minecraft-alpha.apk ~/.minecraft</pre>
+./build-apk.sh $HOME/a1.1.2_01.jar,$HOME/in-20100223.jar minecraft.apk ~/.minecraft</pre>
       <span data-en>The last argument adds sound: launch Alpha once with the official launcher so it downloads the old sound files, then pass your <code>.minecraft</code> folder. Leave it out for a silent build.</span>
       <span data-zh>最後一個參數會加入音效：先用官方啟動器啟動一次 Alpha 讓它下載舊版音效，再把 <code>.minecraft</code> 資料夾傳進來。省略的話就沒有聲音。</span>
     </li>

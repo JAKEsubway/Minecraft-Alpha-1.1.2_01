@@ -187,5 +187,9 @@ final class AndroidPlatform extends Platform {
         }
     }
 
+    public String chooseFile(boolean save, String title, String dir, java.io.FilenameFilter filter) {
+        return act.chooseFile(save, dir, filter);
+    }
+
     public void log(String s) { Log.i(TAG, s); }
 }

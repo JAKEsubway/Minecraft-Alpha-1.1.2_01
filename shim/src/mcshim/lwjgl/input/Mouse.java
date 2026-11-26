@@ -98,5 +98,6 @@ public final class Mouse {
         }
     }
 
-    public static Cursor setNativeCursor(Cursor c) { return null; }
+    /** Indev hides the pointer with a blank cursor instead of grabbing: same thing here. */
+    public static Cursor setNativeCursor(Cursor c) { setGrabbed(c != null); return null; }
 }

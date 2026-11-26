@@ -87,5 +87,14 @@ public class DesktopPlatform extends Platform {
         try { return new RawAudioOut(path, rate); } catch (java.io.IOException e) { return null; }
     }
 
+    /** Test file chooser: answers with the name set by the script's "file" command. */
+    volatile String nextFile;
+    public String chooseFile(boolean save, String title, String dir, java.io.FilenameFilter filter) {
+        String n = nextFile;
+        log("file dialog '" + title + "' save=" + save + " dir=" + dir + " -> " + n);
+        if (n == null) return null;
+        return new java.io.File(dir, n).getPath();
+    }
+
     public void mouseGrabbed(boolean g) { grabbed = g; log("mouse grabbed=" + g); }
 }

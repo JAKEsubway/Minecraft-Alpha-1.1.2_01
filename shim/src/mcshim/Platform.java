@@ -49,5 +49,12 @@ public abstract class Platform {
     /** Open a 16-bit stereo output at the given rate, or null for no sound. */
     public mcshim.audio.AudioOut openAudio(int rate) { return null; }
 
+    /**
+     * Ask the player for a file (Indev's "Load file..." / "Save file...").
+     * Blocks the calling (non-game) thread; returns the chosen absolute path
+     * or null if cancelled. The default picks nothing.
+     */
+    public String chooseFile(boolean save, String title, String dir, java.io.FilenameFilter filter) { return null; }
+
     public void log(String s) { System.out.println("[mcshim] " + s); }
 }

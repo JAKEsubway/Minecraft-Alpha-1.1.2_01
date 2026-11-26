@@ -6,6 +6,7 @@ import mcshim.awt.event.MouseMotionListener;
 import mcshim.awt.image.BufferStrategy;
 
 public class Component implements mcshim.awt.image.ImageObserver {
+    public Point getLocationOnScreen() { return new Point(0, 0); }
     int w, h;
     Container parent;
     private Font font;
