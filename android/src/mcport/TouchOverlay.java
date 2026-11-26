@@ -478,15 +478,14 @@ final class TouchOverlay extends View {
                 if (q.mining) {
                     Mouse.injectButton(0, false);
                 } else if (!cancel && !q.moved && SystemClock.uptimeMillis() - q.t0 < LONG_PRESS_MS) {
-                    // tap: like Pocket Edition, the creature under the finger gets hit;
-                    // a tap anywhere else uses / places at the crosshair
-                    final int tx = (int) q.x0, ty = (int) q.y0, vw = getWidth(), vh = getHeight();
+                    // split controls (Pocket Edition "Split controls" / original game):
+                    // a tap acts on whatever the crosshair points at, with the game's
+                    // own hit test - attack a creature, otherwise use / place
                     Hooks.runOnGameThread(new Runnable() {
                         public void run() {
-                            if (!GuiTouch.attackAtScreen(tx, ty, vw, vh)) {
-                                Mouse.injectButton(1, true);
-                                Mouse.injectButton(1, false);
-                            }
+                            int b = GuiTouch.aimingAtEntity() ? 0 : 1;
+                            Mouse.injectButton(b, true);
+                            Mouse.injectButton(b, false);
                         }
                     });
                 }
