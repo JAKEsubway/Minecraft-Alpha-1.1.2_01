@@ -478,15 +478,12 @@ final class TouchOverlay extends View {
                 if (q.mining) {
                     Mouse.injectButton(0, false);
                 } else if (!cancel && !q.moved && SystemClock.uptimeMillis() - q.t0 < LONG_PRESS_MS) {
-                    // tap: attack if the crosshair is on a creature, otherwise use / place
+                    // tap: like Pocket Edition, the creature under the finger gets hit;
+                    // a tap anywhere else uses / places at the crosshair
+                    final int tx = (int) q.x0, ty = (int) q.y0, vw = getWidth(), vh = getHeight();
                     Hooks.runOnGameThread(new Runnable() {
                         public void run() {
-                            // on a creature: attack (normal click); next to one: attack it anyway
-                            // (fingers aim less precisely than a mouse); otherwise use / place
-                            if (GuiTouch.aimingAtEntity()) {
-                                Mouse.injectButton(0, true);
-                                Mouse.injectButton(0, false);
-                            } else if (!GuiTouch.attackNearCrosshair()) {
+                            if (!GuiTouch.attackAtScreen(tx, ty, vw, vh)) {
                                 Mouse.injectButton(1, true);
                                 Mouse.injectButton(1, false);
                             }

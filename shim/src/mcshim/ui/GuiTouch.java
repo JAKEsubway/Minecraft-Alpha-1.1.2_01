@@ -157,7 +157,7 @@ public final class GuiTouch {
         }
     }
 
-    // ---- attack assist ----
+    // ---- PE-style attack (creature under the finger) ----
     private static boolean aTried, aOk;
     private static Field fEntities, eX, eY, eZ, eYaw, ePitch, eW, eH, eYOff, eHealth;
     private static Class<?> cLiving;
@@ -188,56 +188,81 @@ public final class GuiTouch {
         return aOk;
     }
 
-    /** How far a creature can be hit from (the game's own reach for mobs). */
+    /** How far a creature can be hit from (the game's own reach). */
     private static final double REACH = 4.0;
-    /** Extra margin around a creature's body that still counts as "on it", in blocks. */
-    private static final double MARGIN = 0.75;
+    /** Bodies count 0.1 block bigger, like the game's own picking (collision border). */
+    private static final double BORDER = 0.1;
+    /** Alpha's fixed vertical field of view. */
+    private static final double FOV = 70.0;
 
     /**
-     * Phones can't aim as precisely as a mouse. Find the living creature closest
-     * to the crosshair within reach, treating each body as MARGIN blocks wider,
-     * with no block in between, and attack it exactly the way the game's own
-     * click does (swing + attack with the held item). Returns false if there
-     * is none. Game thread only.
+     * Pocket Edition style attack: the creature under the finger is the one hit.
+     * Casts a ray from the eye through screen pixel (sx, sy) (from the top-left),
+     * finds the nearest living creature whose body (grown by BORDER) it passes
+     * through within REACH, with no block in front, and attacks it exactly as the
+     * game's own click does. Returns false if the finger is not on a creature.
+     * Game thread only.
      */
-    public static boolean attackNearCrosshair() {
-        if (!initAssist()) return false;
+    public static boolean attackAtScreen(int sx, int sy, int dispW, int dispH) {
+        if (!initAssist() || dispW <= 0 || dispH <= 0) return false;
         try {
             Object mc = Hooks.minecraft;
             Object player = fPlayer.get(mc), world = fWorld.get(mc);
             if (player == null || world == null) return false;
             double px = eX.getDouble(player), py = eY.getDouble(player) + 0.12, pz = eZ.getDouble(player);
             double yaw = Math.toRadians(eYaw.getFloat(player)), pitch = Math.toRadians(ePitch.getFloat(player));
-            double lx = -Math.sin(yaw) * Math.cos(pitch), ly = -Math.sin(pitch), lz = Math.cos(yaw) * Math.cos(pitch);
+            // camera basis
+            double fx = -Math.sin(yaw) * Math.cos(pitch), fy = -Math.sin(pitch), fz = Math.cos(yaw) * Math.cos(pitch);
+            double rx = -Math.cos(yaw), ry = 0, rz = -Math.sin(yaw);
+            double ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+            // pixel -> direction
+            double t = Math.tan(Math.toRadians(FOV / 2)), aspect = (double) dispW / dispH;
+            double nx = (2.0 * (sx + 0.5) / dispW - 1) * t * aspect, ny = (1 - 2.0 * (sy + 0.5) / dispH) * t;
+            double dx = fx + rx * nx + ux * ny, dy = fy + ry * nx + uy * ny, dz = fz + rz * nx + uz * ny;
+            double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            dx /= len; dy /= len; dz /= len;
+
             Object best = null;
-            double bestScore = Double.MAX_VALUE;
-            Object[] list = ((List<?>) fEntities.get(world)).toArray();
-            for (Object e : list) {
+            double bestT = Double.MAX_VALUE;
+            for (Object e : ((List<?>) fEntities.get(world)).toArray()) {
                 if (e == player || !cLiving.isInstance(e) || eHealth.getInt(e) <= 0) continue;
-                float w = eW.getFloat(e), h = eH.getFloat(e);
-                double cx = eX.getDouble(e), cz = eZ.getDouble(e);
-                double cy = eY.getDouble(e) - eYOff.getFloat(e) + h / 2.0;
-                double dx = cx - px, dy = cy - py, dz = cz - pz;
-                double along = dx * lx + dy * ly + dz * lz;            // distance along the view
-                if (along <= 0 || along > REACH + w / 2.0) continue;
-                // perpendicular distance from the view ray to the body's centre
-                double ox = dx - along * lx, oy = dy - along * ly, oz = dz - along * lz;
-                double off = Math.sqrt(ox * ox + oy * oy + oz * oz);
-                double radius = Math.max(w, h) / 2.0 + MARGIN;
-                if (off > radius) continue;
-                // nothing solid between the eyes and the creature
-                Object from = mVec.invoke(null, px, py, pz), to = mVec.invoke(null, cx, cy, cz);
+                double hw = eW.getFloat(e) / 2.0 + BORDER, h = eH.getFloat(e);
+                double ex = eX.getDouble(e), ez = eZ.getDouble(e), ey = eY.getDouble(e) - eYOff.getFloat(e);
+                double hit = rayBox(px, py, pz, dx, dy, dz, ex - hw, ey - BORDER, ez - hw, ex + hw, ey + h + BORDER, ez + hw);
+                if (hit < 0 || hit > REACH || hit >= bestT) continue;
+                // nothing solid between the eyes and the point where the finger's ray meets the body
+                Object from = mVec.invoke(null, px, py, pz);
+                Object to = mVec.invoke(null, px + dx * hit, py + dy * hit, pz + dz * hit);
                 if (mRay.invoke(world, from, to) != null) continue;
-                double score = off / radius + along * 0.05; // prefer centred, then nearer
-                if (score < bestScore) { bestScore = score; best = e; }
+                bestT = hit;
+                best = e;
             }
             if (best == null) return false;
             mSwing.invoke(player);
             mAttack.invoke(player, best);
             return true;
-        } catch (Throwable t) {
+        } catch (Throwable e) {
             return false;
         }
+    }
+
+    /** Distance along the ray to the box, or -1 if it misses (slab method). */
+    private static double rayBox(double ox, double oy, double oz, double dx, double dy, double dz,
+                                 double x0, double y0, double z0, double x1, double y1, double z1) {
+        double tmin = 0, tmax = Double.MAX_VALUE;
+        double[] o = {ox, oy, oz}, d = {dx, dy, dz}, lo = {x0, y0, z0}, hi = {x1, y1, z1};
+        for (int i = 0; i < 3; i++) {
+            if (Math.abs(d[i]) < 1e-9) {
+                if (o[i] < lo[i] || o[i] > hi[i]) return -1;
+            } else {
+                double a = (lo[i] - o[i]) / d[i], b = (hi[i] - o[i]) / d[i];
+                if (a > b) { double tt = a; a = b; b = tt; }
+                tmin = Math.max(tmin, a);
+                tmax = Math.min(tmax, b);
+                if (tmin > tmax) return -1;
+            }
+        }
+        return tmin;
     }
 
     /** True when the crosshair is on a mob/animal/player (game thread). */

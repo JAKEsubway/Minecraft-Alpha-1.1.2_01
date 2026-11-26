@@ -28,6 +28,22 @@ public class TestMain {
                 case "wait": waitFrames(Integer.parseInt(t[1])); break;
                 case "sleep": Thread.sleep(Long.parseLong(t[1])); break;
                 case "shot": p.screenshotPath = t[1]; waitFrames(2); break;
+                case "findpig": {
+                    p.pinkRequest = true; waitFrames(2);
+                    int[] k = p.pink;
+                    System.out.println(k == null ? "pig not on screen" : "pig on screen x " + k[0] + ".." + k[2] + " y " + k[1] + ".." + k[3] + " centre " + k[4] + "," + k[5]);
+                    pigBox = k;
+                    break;
+                }
+                case "tappig": { // tap the pig's centre, or beside it: "tappig right 25"
+                    int[] k = pigBox;
+                    if (k == null) { System.out.println("tappig: no pig"); break; }
+                    int x = k[4], y = k[5];
+                    if (t.length > 2 && t[1].equals("right")) x = k[2] + Integer.parseInt(t[2]);
+                    if (t.length > 2 && t[1].equals("above")) { y = k[1] - Integer.parseInt(t[2]); }
+                    game(new String[] {"taplook", String.valueOf(x), String.valueOf(y)});
+                    break;
+                }
                 case "click": click(Integer.parseInt(t[1]), Integer.parseInt(t[2])); break;
                 case "move": Mouse.injectMove(Integer.parseInt(t[1]), p.h - 1 - Integer.parseInt(t[2])); waitFrames(2); break;
                 case "key": Keyboard.tap(Integer.parseInt(t[1]), (char) 0); break;
@@ -83,11 +99,12 @@ public class TestMain {
                         System.out.println(b);
                     } else if (t[0].equals("taplook")) {
                         // same decision the phone makes on a quick tap in the world
+                        // same decision the phone makes on a quick tap at window pixel (x, y); default = screen centre
+                        int x = t.length > 2 ? Integer.parseInt(t[1]) : p.w / 2, y = t.length > 2 ? Integer.parseInt(t[2]) : p.h / 2;
                         String what;
-                        if (mcshim.ui.GuiTouch.aimingAtEntity()) { Mouse.injectButton(0, true); Mouse.injectButton(0, false); what = "attack (on crosshair)"; }
-                        else if (mcshim.ui.GuiTouch.attackNearCrosshair()) what = "attack (assist)";
+                        if (mcshim.ui.GuiTouch.attackAtScreen(x, y, p.w, p.h)) what = "attack";
                         else { Mouse.injectButton(1, true); Mouse.injectButton(1, false); what = "use/place"; }
-                        System.out.println("taplook -> " + what);
+                        System.out.println("taplook " + x + "," + y + " -> " + what);
                     } else if (t[0].equals("turn")) {
                         // turn the player's view by yaw/pitch degrees (to aim beside the pig)
                         Object pl = field(mcshim.Hooks.minecraft.getClass().getSuperclass(), "g").get(mcshim.Hooks.minecraft);
@@ -145,6 +162,7 @@ public class TestMain {
     }
 
     static Object pig;
+    static int[] pigBox;
 
     static java.lang.reflect.Field field(Class<?> c, String n) throws Exception {
         java.lang.reflect.Field f = c.getDeclaredField(n);

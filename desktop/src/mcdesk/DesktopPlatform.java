@@ -16,6 +16,8 @@ public class DesktopPlatform extends Platform {
     private final DesktopGL gl = new DesktopGL();
     volatile int frames;
     volatile String screenshotPath;
+    volatile boolean pinkRequest;
+    volatile int[] pink; // {minX, minY, maxX, maxY, cx, cy, count} of pig-pink pixels, y from top
     volatile String crashText;
     volatile boolean grabbed;
 
@@ -32,8 +34,26 @@ public class DesktopPlatform extends Platform {
     public void swapBuffers() {
         String shot = screenshotPath;
         if (shot != null) { screenshotPath = null; saveShot(shot); }
+        if (pinkRequest) { pink = findPink(); pinkRequest = false; }
         Display.update();
         frames++;
+    }
+
+    /** Locate the pig on screen from the rendered frame (pink skin pixels). */
+    int[] findPink() {
+        ByteBuffer b = BufferUtils.createByteBuffer(w * h * 4);
+        gl.glReadPixels(0, 0, w, h, 0x1908, 0x1401, b);
+        int minX = w, minY = h, maxX = -1, maxY = -1, n = 0;
+        long sx = 0, sy = 0;
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+            int i = ((h - 1 - y) * w + x) * 4;
+            int r = b.get(i) & 255, g = b.get(i + 1) & 255, bl = b.get(i + 2) & 255;
+            if (r > 180 && g > 100 && g < 200 && bl > 100 && bl < 200 && r - g > 35 && Math.abs(g - bl) < 35) {
+                minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+                sx += x; sy += y; n++;
+            }
+        }
+        return n < 50 ? null : new int[] {minX, minY, maxX, maxY, (int) (sx / n), (int) (sy / n), n};
     }
 
     void saveShot(String path) {
