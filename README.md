@@ -178,7 +178,9 @@ App 會代替當年已關閉的 minecraft.net，改用現在的 Mojang session s
 4. 把 ID 寫進專案資料夾的 `ms-client-id.txt`（已在 `.gitignore`，不會上傳），或打包前設定
    `export MCPORT_MS_CLIENT_ID=你的ID`，再執行 `build-apk.sh`。打包訊息會顯示 `Microsoft sign-in: on`
 
-沒有提供 ID 的 APK 照樣能玩單人，但無法登入，多人遊戲維持鎖定。
+沒有在打包時提供 ID 也沒關係：在 App 裡點登入，會跳出「設定登入」，直接貼上應用程式 ID 就能用
+（存在手機裡，登出也不會清掉；之後想換可以在錯誤訊息點「修改應用程式 ID」）。
+ID 貼錯、沒開公用用戶端流程、還沒被核准（403）都會用中文說明。
 
 注意：Alpha 時代的伺服器軟體驗證玩家用的是已關閉的舊網址，所以現在大多數 Alpha 伺服器是非正版驗證（offline-mode）；
 正版驗證只對改用新 session server 的伺服器（或透過 ViaProxy 之類的代理）有效。

@@ -523,10 +523,64 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         }, "sign-in wait").start();
     }
 
+    /** No client ID yet: explain, and let the player enter the ID of their own Azure app. */
+    private void askClientId() {
+        float dp = getResources().getDisplayMetrics().density;
+        final android.widget.EditText id = new android.widget.EditText(this);
+        id.setSingleLine();
+        id.setHint("00000000-0000-0000-0000-000000000000");
+        if (Auth.clientId() != null) id.setText(Auth.clientId());
+        TextView msg = new TextView(this);
+        msg.setText("正版登入需要你自己的 Azure 應用程式 ID（Mojang 規定每個第三方程式自己申請，不能借用別人的）。\n\n"
+                + "1. portal.azure.com → Microsoft Entra ID → 應用程式註冊 → 新增註冊，帳戶類型選「僅限個人 Microsoft 帳戶」\n"
+                + "2. 「驗證」裡把「允許公用用戶端流程」設為「是」\n"
+                + "3. 到 aka.ms/mce-reviewappid 申請 Minecraft API 權限，等 Mojang 核准\n"
+                + "4. 把「應用程式（用戶端）識別碼」貼在下面\n\n"
+                + "核准前登入會顯示 403。");
+        msg.setTextSize(14);
+        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (20 * dp);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(msg);
+        box.addView(id);
+        android.widget.ScrollView sc = new android.widget.ScrollView(this);
+        sc.addView(box);
+        new android.app.AlertDialog.Builder(this).setTitle("設定登入 Set up sign-in").setView(sc)
+                .setPositiveButton("儲存並登入", new android.content.DialogInterface.OnClickListener() {
+                    public void onClick(android.content.DialogInterface d, int w) {
+                        String v = id.getText().toString().trim();
+                        if (!v.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) {
+                            android.widget.Toast.makeText(MainActivity.this, "格式不對：應該像 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", android.widget.Toast.LENGTH_LONG).show();
+                            hideSystemUi();
+                            return;
+                        }
+                        Auth.setClientId(MainActivity.this, v);
+                        showLogin();
+                    }
+                })
+                .setNeutralButton("開啟申請表", new android.content.DialogInterface.OnClickListener() {
+                    public void onClick(android.content.DialogInterface d, int w) {
+                        try {
+                            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://aka.ms/mce-reviewappid")));
+                        } catch (Exception ignored) {}
+                    }
+                })
+                .setNegativeButton("取消 Cancel", null)
+                .setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
+                    public void onDismiss(android.content.DialogInterface d) { hideSystemUi(); }
+                }).show();
+    }
+
     private void showAuthError(Exception e) {
+        if (e instanceof Auth.NoClientId) { askClientId(); return; }
         String m = e instanceof Auth.AuthException ? e.getMessage() : "登入失敗 Sign-in failed:\n" + e;
-        new android.app.AlertDialog.Builder(this).setTitle("無法登入").setMessage(m)
-                .setPositiveButton("OK", null)
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this).setTitle("無法登入").setMessage(m)
+                .setPositiveButton("OK", null);
+        if (e instanceof Auth.BadClientId) b.setNeutralButton("修改應用程式 ID", new android.content.DialogInterface.OnClickListener() {
+            public void onClick(android.content.DialogInterface d, int w) { askClientId(); }
+        });
+        b
                 .setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
                     public void onDismiss(android.content.DialogInterface d) { hideSystemUi(); }
                 }).show();

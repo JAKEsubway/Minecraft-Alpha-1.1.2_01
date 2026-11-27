@@ -36,8 +36,15 @@ final class Auth {
     }
 
     /** Thrown with a message meant for the player (Traditional Chinese + English). */
-    static final class AuthException extends Exception {
+    static class AuthException extends Exception {
         AuthException(String m) { super(m); }
+    }
+
+    static final class NoClientId extends Exception {}
+
+    /** The entered client ID was refused by Microsoft; message for the player. */
+    static final class BadClientId extends AuthException {
+        BadClientId(String m) { super(m); }
     }
 
     private static String clientId;
@@ -55,9 +62,20 @@ final class Auth {
             in.close();
             if (id.length() > 0) clientId = id;
         } catch (IOException ignored) {}
+        String own = c.getSharedPreferences("mcport-auth-id", Context.MODE_PRIVATE).getString("client_id", null);
+        if (clientId == null && own != null && own.length() > 0) clientId = own;
         name = prefs.getString("name", null);
         uuid = prefs.getString("uuid", null);
     }
+
+    /** The client ID entered in the app (kept apart from sign-in data, so sign-out keeps it). */
+    static void setClientId(Context c, String id) {
+        id = id == null ? "" : id.trim();
+        c.getSharedPreferences("mcport-auth-id", Context.MODE_PRIVATE).edit().putString("client_id", id).apply();
+        clientId = id.length() > 0 ? id : null;
+    }
+
+    static String clientId() { return clientId; }
 
     /** True if this APK was built with a client ID, so signing in is possible at all. */
     static boolean available() { return clientId != null; }
@@ -74,8 +92,20 @@ final class Auth {
     // ---- device code flow ----
 
     static DeviceCode start() throws Exception {
-        if (!available()) throw new AuthException("這個 APK 沒有設定 Azure 應用程式 ID，無法登入。\nThis APK was built without a sign-in client ID.");
-        JSONObject r = postForm(MS + "devicecode", "client_id=" + enc(clientId) + "&scope=" + enc(SCOPE));
+        if (!available()) throw new NoClientId();
+        JSONObject r;
+        try {
+            r = postForm(MS + "devicecode", "client_id=" + enc(clientId) + "&scope=" + enc(SCOPE));
+        } catch (HttpError e) {
+            String d = e.json != null ? e.json.optString("error_description") : "";
+            if (d.contains("AADSTS700016") || d.contains("AADSTS90002"))
+                throw new BadClientId("找不到這個應用程式 ID，請檢查有沒有貼錯，以及帳戶類型是否包含個人 Microsoft 帳戶。");
+            if (d.contains("AADSTS7000218") || d.contains("AADSTS70002") || (e.json != null && e.json.optString("error").equals("unauthorized_client")))
+                throw new BadClientId("這個應用程式沒有開啟「允許公用用戶端流程」：到 Azure 的「驗證」頁設為「是」。");
+            if (d.contains("AADSTS50059") || d.contains("AADSTS9002331"))
+                throw new BadClientId("應用程式的帳戶類型要包含「個人 Microsoft 帳戶」。");
+            throw e;
+        }
         DeviceCode d = new DeviceCode();
         d.deviceCode = r.getString("device_code");
         d.userCode = r.getString("user_code");
@@ -141,7 +171,7 @@ final class Auth {
             mc = postJson("https://api.minecraftservices.com/authentication/login_with_xbox",
                     new JSONObject().put("identityToken", "XBL3.0 x=" + uhs + ";" + xsts.getString("Token")), null);
         } catch (HttpError e) {
-            if (e.code == 403) throw new AuthException("這個 Azure 應用程式還沒有獲准使用 Minecraft API（403）。\nThis app's client ID is not approved for the Minecraft API.");
+            if (e.code == 403) throw new BadClientId("這個 Azure 應用程式還沒有獲准使用 Minecraft API（403）。\n到 aka.ms/mce-reviewappid 申請，Mojang 核准後就能登入。");
             throw e;
         }
         String token = mc.getString("access_token");
