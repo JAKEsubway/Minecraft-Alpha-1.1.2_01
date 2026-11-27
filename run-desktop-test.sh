@@ -32,7 +32,7 @@ if [ -n "$MCDESK_SEPARATE" ]; then
 else
   CP=$B/desk-classes:$B/shim-classes:$B/game-remapped.jar:$B/game-res.zip:/usr/share/java/lwjgl.jar
 fi
-java -Xmx1g -Djava.library.path=/usr/lib/jni $MCDESK_JAVA_OPTS \
+java -Xmx${MCDESK_XMX:-1g} -Djava.library.path=/usr/lib/jni $MCDESK_JAVA_OPTS \
   -cp $CP \
   mcdesk.TestMain "$HOME_DIR" "$SCRIPT" || true
 [ -n "$XVFB" ] && kill $XVFB 2>/dev/null || true

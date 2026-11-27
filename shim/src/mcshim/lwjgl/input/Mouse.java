@@ -46,12 +46,24 @@ public final class Mouse {
 
     public static boolean isGrabbed() { return grabbed; }
 
+    // ---- AWT pointer for Indev, which reads mouse motion as "pointer position
+    // minus window centre" and warps the pointer back with java.awt.Robot ----
+    private static int baseX, baseY, ptrX, ptrY;
+
+    /** Where java.awt.MouseInfo says the pointer is: last warp target plus motion since. */
+    public static int awtPointerX() { return baseX + ptrX; }
+    public static int awtPointerY() { return baseY + ptrY; }
+
+    /** java.awt.Robot.mouseMove: put the pointer there. */
+    public static void awtWarp(int x, int y) { baseX = x; baseY = y; ptrX = 0; ptrY = 0; }
+
     // ---- LWJGL API ----
     public static void poll() {
         synchronized (pending) {
             int ix = (int) pdx, iy = (int) pdy;
             pdx -= ix; pdy -= iy;
             dx += ix; dy += iy;
+            ptrX += ix; ptrY -= iy;   // AWT pointer: y grows downwards
             Ev e;
             while ((e = pending.poll()) != null) {
                 x = e.x; y = e.y;
