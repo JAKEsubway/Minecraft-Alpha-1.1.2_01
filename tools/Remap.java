@@ -71,6 +71,61 @@ public class Remap {
     }
 
     /**
+     * Indev 20100223 only (its main class is net/minecraft/client/d): calls into
+     * mcshim.IndevLevels so the five "online" level slots save and load local
+     * files (in this version they did nothing), and the pause menu gets a
+     * "Quit to title" button. Each entry: class, method+descriptor, where
+     * ("start" or "end"), shim method, and its descriptor (args: this[, first arg]).
+     */
+    static final String[][] INDEV_PATCHES = {
+        {"net/minecraft/client/c/e", "a(I)V", "start", "loadSlot", "(Ljava/lang/Object;I)V"},
+        {"net/minecraft/client/c/p", "a(Lnet/minecraft/client/c/r;)V", "start", "nameScreenButton", "(Ljava/lang/Object;Ljava/lang/Object;)V"},
+        {"net/minecraft/client/c/b", "b()V", "end", "pauseMenuButtons", "(Ljava/lang/Object;)V"},
+        {"net/minecraft/client/c/b", "a(Lnet/minecraft/client/c/r;)V", "start", "pauseMenuAction", "(Ljava/lang/Object;Ljava/lang/Object;)V"},
+    };
+
+    static final class IndevPatches extends ClassVisitor {
+        private String cls;
+        IndevPatches(ClassVisitor cv) { super(Opcodes.ASM9, cv); }
+        public void visit(int v, int acc, String name, String sig, String sup, String[] itf) {
+            cls = name;
+            super.visit(v, acc, name, sig, sup, itf);
+        }
+        public MethodVisitor visitMethod(int acc, String n, String d, String sig, String[] ex) {
+            MethodVisitor mv = super.visitMethod(acc, n, d, sig, ex);
+            for (final String[] p : INDEV_PATCHES) {
+                if (!p[0].equals(cls) || !p[1].equals(n + d)) continue;
+                final boolean twoArgs = p[4].startsWith("(Ljava/lang/Object;I") || p[4].startsWith("(Ljava/lang/Object;Ljava");
+                final boolean intArg = p[4].startsWith("(Ljava/lang/Object;I");
+                final Runnable[] call = new Runnable[1];
+                final MethodVisitor out = mv;
+                call[0] = new Runnable() {
+                    public void run() {
+                        out.visitVarInsn(Opcodes.ALOAD, 0);
+                        if (twoArgs) out.visitVarInsn(intArg ? Opcodes.ILOAD : Opcodes.ALOAD, 1);
+                        out.visitMethodInsn(Opcodes.INVOKESTATIC, "mcshim/IndevLevels", p[3], p[4], false);
+                    }
+                };
+                System.out.println("  patched " + cls + "." + n + d + " -> IndevLevels." + p[3]);
+                if (p[2].equals("start")) {
+                    return new MethodVisitor(Opcodes.ASM9, mv) {
+                        public void visitCode() { super.visitCode(); call[0].run(); }
+                        public void visitMaxs(int stack, int locals) { super.visitMaxs(Math.max(stack, 2), locals); }
+                    };
+                }
+                return new MethodVisitor(Opcodes.ASM9, mv) {
+                    public void visitInsn(int op) {
+                        if (op == Opcodes.RETURN) call[0].run();
+                        super.visitInsn(op);
+                    }
+                    public void visitMaxs(int stack, int locals) { super.visitMaxs(Math.max(stack, 2), locals); }
+                };
+            }
+            return mv;
+        }
+    }
+
+    /**
      * The game object the shim hooks: net/minecraft/client/Minecraft when the
      * jar has it (Alpha), otherwise the Runnable in net/minecraft/client that
      * the applet constructs (Indev, where everything is obfuscated).
@@ -137,6 +192,7 @@ public class Remap {
                     ClassWriter cw = new ClassWriter(0);
                     ClassVisitor cv = new ClassRemapper(cw, r);
                     if (name.equals(hook + ".class")) cv = new HookMinecraft(cv);
+                    if (hook.equals("net/minecraft/client/d")) cv = new IndevPatches(cv);
                     cv = new SafeSorts(cv);
                     cr.accept(cv, 0);
                     outC.putNextEntry(new ZipEntry(name));

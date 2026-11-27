@@ -17,7 +17,7 @@ public final class Net {
     /**
      * Indev's Load / Save level screens ask minecraft.net for the player's five
      * online level slots and show the "Load file..." / "Save file..." buttons
-     * only once that list arrives. Answer "five empty slots".
+     * only once that list arrives. The slots are local files now (IndevLevels).
      */
     public static java.net.URLConnection openConnection(final URL url) throws IOException {
         if (Skins.isSkinUrl(url.toString())) return Skins.connection(url);
@@ -25,7 +25,7 @@ public final class Net {
             return new java.net.URLConnection(url) {
                 public void connect() {}
                 public InputStream getInputStream() throws IOException {
-                    return new ByteArrayInputStream("-;-;-;-;-\n".getBytes("UTF-8"));
+                    return new ByteArrayInputStream((IndevLevels.slotList() + "\n").getBytes("UTF-8"));
                 }
             };
         }

@@ -271,9 +271,11 @@ App 會代替當年已關閉的 minecraft.net，改用現在的 Mojang session s
 觸控操作和 Alpha 一樣（I 鍵＝「⋯」開背包，沒有蹲下）。
 
 - **Generate new level…：**選類型、形狀、大小、主題後 Create
-- **存檔／讀檔：**暫停選單的 Save level.. / Load level..，再點 **Save file… / Load file…**：
-  存檔會跳出手機對話框輸入檔名，讀檔會列出存過的世界（最新的在上面）。
-  上面五個「-」格子是當年的線上存檔位，這個版本本來就沒有作用
+- **存檔：**暫停選單 → Save level.. → 點五個格子其中一個 → 輸入世界名稱（手機鍵盤會自動跳出）→ Save。
+  原版這五格是線上存檔位，這個版本本來按了不會存；現在改成存在手機裡（`saves/slot1.mclevel`～`slot5.mclevel`）
+- **讀檔：**標題畫面或暫停選單 → Load level.. → 點有名字的格子
+- **回到標題畫面：**暫停選單多了 **Quit to title**（原版 Indev 沒有）。不會自動存檔，要先存
+- **Save file… / Load file…：**另外存成／讀取自己取名的 `.mclevel` 檔（手機對話框）
 - Indev 原本要連到 minecraft.net 確認登入才肯進入剛產生的世界，這些檢查改成在本機直接回答，不用連網
 
 ## 六、專案結構
@@ -298,6 +300,7 @@ shim/src/mcshim/        轉接層（Android 與電腦共用）
   Hooks.java            遊戲執行緒與 UI 之間的橋樑（每幀執行排隊的工作）
   Launch.java           啟動任一版本：Alpha 用 Minecraft.main，Indev 用當年網頁上的 applet 方式
   Skins.java            皮膚：自訂 PNG 或用 Mojang API 查正版皮膚，64×64 轉成舊的 64×32
+  IndevLevels.java      Indev 的五個存檔格改存本機、暫停選單加 Quit to title（Remap 在遊戲裡插入呼叫）
   Net.java              代替已關閉的 minecraft.net 回答 Indev 的登入檢查、資源清單、線上存檔清單，
                         並把 Alpha 的 joinserver.jsp 轉給已登入的帳號（現在的 session server）
   swing/                Indev 啟動失敗時的訊息框 → 錯誤畫面

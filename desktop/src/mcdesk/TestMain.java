@@ -56,6 +56,7 @@ public class TestMain {
                 case "click": click(Integer.parseInt(t[1]), Integer.parseInt(t[2])); break;
                 case "move": Mouse.injectMove(Integer.parseInt(t[1]), p.h - 1 - Integer.parseInt(t[2])); waitFrames(2); break;
                 case "key": Keyboard.tap(Integer.parseInt(t[1]), (char) 0); break;
+                case "type": for (char ch : t[1].toCharArray()) { Keyboard.tap(0, ch); Thread.sleep(60); } break;
                 case "hold": Keyboard.inject(Integer.parseInt(t[1]), true, (char) 0); break;
                 case "release": Keyboard.inject(Integer.parseInt(t[1]), false, (char) 0); break;
                 case "look": Mouse.injectDelta(Float.parseFloat(t[1]), Float.parseFloat(t[2])); break;
