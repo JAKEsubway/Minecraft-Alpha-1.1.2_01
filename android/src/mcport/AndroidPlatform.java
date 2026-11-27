@@ -187,6 +187,16 @@ final class AndroidPlatform extends Platform {
         }
     }
 
+    public java.io.File customSkin() {
+        java.io.File f = MainActivity.skinFile(act);
+        return f.isFile() ? f : null;
+    }
+
+    /** Real skins of signed-in / multiplayer names; the default "Player" is nobody's. */
+    public boolean onlineSkin(String name) {
+        return !(name.equals("Player") && !Auth.signedIn());
+    }
+
     public String chooseFile(boolean save, String title, String dir, java.io.FilenameFilter filter) {
         return act.chooseFile(save, dir, filter);
     }

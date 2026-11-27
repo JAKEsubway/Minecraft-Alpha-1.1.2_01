@@ -62,5 +62,11 @@ public abstract class Platform {
      */
     public boolean joinServer(String serverId) { return false; }
 
+    /** The skin file the player picked for themselves on this device, or null. */
+    public java.io.File customSkin() { return null; }
+
+    /** Whether to look this player's skin up online (Mojang API). */
+    public boolean onlineSkin(String name) { return false; }
+
     public void log(String s) { System.out.println("[mcshim] " + s); }
 }

@@ -26,6 +26,8 @@ code is not changed.
   contract!" crashes, and duplicated buttons after leaving the Controls screen
 - Microsoft sign-in (device code) for accounts that own Java Edition; multiplayer is locked until you sign in,
   and online-mode servers are joined through today's session server (needs your own approved Azure client ID)
+- Skins: pick your own PNG (64x32 or 64x64) on the phone, or get your account's real skin when signed in;
+  other players' skins in multiplayer come from the Mojang API (64x64 skins are cut to the old 64x32 layout)
 - Version picker: put several versions in one APK; each runs in its own class loader with its own options and saves
 - Indev 20100223 works offline: level generation, sounds and Load/Save file (the minecraft.net checks it made are answered locally)
 - Desktop test harness: run the same layer on a PC (Xvfb + Mesa) with scripted input and screenshots
@@ -137,6 +139,19 @@ Indev 也用同一份音效（Indev 的音效名稱和 Alpha 相同）。Indev �
 
 **背景音樂：**放在 `music/`（例如 `calm1.ogg`、`calm2.ogg`、`calm3.ogg`）。原版要隨機等 0～10 分鐘才播第一首，
 手機上常常還沒聽到就關掉了，所以每次開遊戲的第一首改成 30～90 秒內開始，之後照原版的間隔。
+
+### 皮膚
+
+在「選擇版本」畫面點「皮膚」那一行：
+
+- **自訂皮膚：**選一張手機裡的 PNG（64×32 舊格式或 64×64 新格式都可以，高解析度皮膚也行）。只有你自己看得到；
+  別的玩家看到的是你正版帳號的皮膚
+- **正版皮膚：**登入正版帳號、沒有選自訂皮膚時，會自動用帳號在 minecraft.net 設定的皮膚
+- **多人遊戲：**其他玩家的皮膚會用他們的名字向 Mojang 查詢
+- 沒登入、也沒選自訂皮膚時是預設的 Steve
+- 新格式（64×64）的下半部（左手左腳分開的部分、第二層外套）舊版本畫不出來，會用上半部；細手臂（Alex）皮膚手臂會略寬
+
+Alpha 和 Indev 共用同一張自訂皮膚。要第三人稱看自己：Alpha 按 F5（藍牙鍵盤）。
 
 ### 正版登入與多人遊戲
 
@@ -282,6 +297,7 @@ shim/src/mcshim/        轉接層（Android 與電腦共用）
   sound/                javax.sound 空殼
   Hooks.java            遊戲執行緒與 UI 之間的橋樑（每幀執行排隊的工作）
   Launch.java           啟動任一版本：Alpha 用 Minecraft.main，Indev 用當年網頁上的 applet 方式
+  Skins.java            皮膚：自訂 PNG 或用 Mojang API 查正版皮膚，64×64 轉成舊的 64×32
   Net.java              代替已關閉的 minecraft.net 回答 Indev 的登入檢查、資源清單、線上存檔清單，
                         並把 Alpha 的 joinserver.jsp 轉給已登入的帳號（現在的 session server）
   swing/                Indev 啟動失敗時的訊息框 → 錯誤畫面

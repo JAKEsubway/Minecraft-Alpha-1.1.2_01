@@ -20,6 +20,7 @@ public final class Net {
      * only once that list arrives. Answer "five empty slots".
      */
     public static java.net.URLConnection openConnection(final URL url) throws IOException {
+        if (Skins.isSkinUrl(url.toString())) return Skins.connection(url);
         if (url.toString().contains("/listmaps.jsp?")) {
             return new java.net.URLConnection(url) {
                 public void connect() {}
@@ -97,7 +98,7 @@ public final class Net {
         }
     }
 
-    private static byte[] base64(String s) {
+    static byte[] base64(String s) {
         String a = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream();
         int buf = 0, bits = 0;

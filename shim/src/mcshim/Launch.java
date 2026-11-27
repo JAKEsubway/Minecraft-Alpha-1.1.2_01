@@ -11,6 +11,7 @@ public final class Launch {
     private Launch() {}
 
     public static void start(ClassLoader cl, String user) throws Exception {
+        Skins.localName = user;
         try {
             Class<?> mc = Class.forName("net.minecraft.client.Minecraft", false, cl);
             Method main = mc.getMethod("main", String[].class);

@@ -150,6 +150,7 @@ public final class GuiTouch {
 
     /** Change the player's name in the running game (used for multiplayer). Game thread. */
     public static void setPlayerName(String player) {
+        if (player != null) { mcshim.Skins.localName = player; mcshim.Skins.reset(); }
         if (!init() || v.session == null || player == null) return;
         try {
             Object mc = Hooks.minecraft;

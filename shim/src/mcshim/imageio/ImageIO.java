@@ -11,6 +11,7 @@ public final class ImageIO {
     private ImageIO() {}
 
     public static BufferedImage read(InputStream in) throws IOException {
+        if (in instanceof mcshim.Skins.ImageStream) return ((mcshim.Skins.ImageStream) in).image;
         if (in == null) throw new IllegalArgumentException("input == null!");
         try {
             return Platform.get().decodeImage(in);

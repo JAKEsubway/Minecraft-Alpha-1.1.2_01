@@ -87,6 +87,11 @@ public class DesktopPlatform extends Platform {
         try { return new RawAudioOut(path, rate); } catch (java.io.IOException e) { return null; }
     }
 
+    public java.io.File customSkin() {
+        String p = System.getProperty("mcdesk.skin");
+        return p == null ? null : new java.io.File(p);
+    }
+
     /** Test file chooser: answers with the name set by the script's "file" command. */
     volatile String nextFile;
     public String chooseFile(boolean save, String title, String dir, java.io.FilenameFilter filter) {

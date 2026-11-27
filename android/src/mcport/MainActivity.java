@@ -150,6 +150,18 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             lp.topMargin = (int) (12 * dp);
             col.addView(b, lp);
         }
+        skinRow = new TextView(this);
+        skinRow.setTextColor(0xFFE0E0E0);
+        skinRow.setTextSize(14);
+        skinRow.setGravity(android.view.Gravity.CENTER);
+        skinRow.setPadding((int) (8 * dp), (int) (4 * dp), (int) (8 * dp), (int) (4 * dp));
+        skinRow.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { skinMenu(); }
+        });
+        android.widget.LinearLayout.LayoutParams sl = new android.widget.LinearLayout.LayoutParams(-2, -2);
+        sl.topMargin = (int) (14 * dp);
+        col.addView(skinRow, sl);
+        updateSkinRow();
         accountRow = new TextView(this);
         accountRow.setTextColor(0xFFE0E0E0);
         accountRow.setTextSize(14);
@@ -162,7 +174,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                     new android.app.AlertDialog.Builder(MainActivity.this)
                             .setMessage("登出 " + Auth.name() + "？\nSign out?")
                             .setPositiveButton("登出 Sign out", new android.content.DialogInterface.OnClickListener() {
-                                public void onClick(android.content.DialogInterface d, int w) { Auth.signOut(); updateAccountRow(); }
+                                public void onClick(android.content.DialogInterface d, int w) { Auth.signOut(); updateAccountRow(); updateSkinRow(); }
                             })
                             .setNegativeButton("取消 Cancel", null).show();
                 } else {
@@ -171,7 +183,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             }
         });
         android.widget.LinearLayout.LayoutParams al = new android.widget.LinearLayout.LayoutParams(-2, -2);
-        al.topMargin = (int) (14 * dp);
+        al.topMargin = (int) (2 * dp);
         col.addView(accountRow, al);
         updateAccountRow();
         TextView hint = new TextView(this);
@@ -354,6 +366,76 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         return result[0];
     }
 
+    // ---- skin ----
+    private TextView skinRow;
+    private static final int PICK_SKIN = 41;
+
+    static File skinFile(android.content.Context c) { return new File(c.getFilesDir(), "skin.png"); }
+
+    private void updateSkinRow() {
+        if (skinRow == null) return;
+        skinRow.setText(skinFile(this).isFile()
+                ? "皮膚：自訂（點一下更換或移除）"
+                : Auth.signedIn() ? "皮膚：正版帳號的皮膚（點一下改用自訂 PNG）" : "皮膚：預設（點一下選擇 PNG）");
+    }
+
+    private void skinMenu() {
+        if (!skinFile(this).isFile()) { pickSkin(); return; }
+        new android.app.AlertDialog.Builder(this).setTitle("皮膚 Skin")
+                .setItems(new String[] {"選擇其他 PNG", Auth.signedIn() ? "移除（改回正版皮膚）" : "移除（改回預設）"},
+                        new android.content.DialogInterface.OnClickListener() {
+                            public void onClick(android.content.DialogInterface d, int w) {
+                                if (w == 0) pickSkin();
+                                else { skinFile(MainActivity.this).delete(); mcshim.Skins.reset(); updateSkinRow(); }
+                            }
+                        })
+                .setNegativeButton("取消 Cancel", null).show();
+    }
+
+    private void pickSkin() {
+        android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+        i.setType("image/png");
+        try {
+            startActivityForResult(i, PICK_SKIN);
+        } catch (Exception e) {
+            android.widget.Toast.makeText(this, "找不到檔案選擇器", android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, android.content.Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req != PICK_SKIN || res != RESULT_OK || data == null || data.getData() == null) { hideSystemUi(); return; }
+        String err = null;
+        try {
+            java.io.InputStream in = getContentResolver().openInputStream(data.getData());
+            java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0 && b.size() < 4 << 20) b.write(buf, 0, n);
+            in.close();
+            byte[] png = b.toByteArray();
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeByteArray(png, 0, png.length, o);
+            int w = o.outWidth, h = o.outHeight;
+            if (w < 64 || w % 64 != 0 || (h != w && h * 2 != w)) {
+                err = "這不是 Minecraft 皮膚（要 64×32 或 64×64 的 PNG，這張是 " + w + "×" + h + "）。";
+            } else {
+                java.io.FileOutputStream out = new java.io.FileOutputStream(skinFile(this));
+                out.write(png);
+                out.close();
+                mcshim.Skins.reset();
+            }
+        } catch (Exception e) {
+            err = "讀不到這張圖片：" + e;
+        }
+        updateSkinRow();
+        hideSystemUi();
+        android.widget.Toast.makeText(this, err != null ? err : "已換上自訂皮膚", android.widget.Toast.LENGTH_LONG).show();
+    }
+
     // ---- Microsoft account ----
     private TextView accountRow;
 
@@ -427,6 +509,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                         public void run() {
                             dlg.dismiss();
                             updateAccountRow();
+                            updateSkinRow();
                             hideSystemUi();
                             android.widget.Toast.makeText(MainActivity.this, "已登入：" + player, android.widget.Toast.LENGTH_LONG).show();
                         }
